@@ -27,7 +27,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "md2docx.log")
 
 DEFAULT_CONFIG = {
-    "hotkey": "<ctrl>+m",
+    "hotkey": "<ctrl>+b",
     "pandoc_path": "pandoc",
     "reference_docx": None,  # 可选：Pandoc 参考模板；不需要就设为 None
     "save_dir": r"%USERPROFILE%\Documents\md2docx_paste",

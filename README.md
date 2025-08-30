@@ -1,0 +1,101 @@
+# MD→DOCX HotPaste
+
+一个常驻托盘的小工具：
+从 **剪贴板读取 Markdown**，调用 **Pandoc** 转换为 DOCX，并自动插入到 **Word/WPS** 光标位置。
+
+---
+
+## 功能特点
+
+* 全局热键（默认 `Ctrl+B`）一键粘贴 Markdown → DOCX。
+* 自动识别当前前台应用：Word 或 WPS。
+* 托盘菜单，可切换目标、保留文件、查看日志/配置等。
+* 支持系统通知提醒。
+* 无黑框，无阻塞，稳定运行。
+
+---
+
+## 安装依赖
+
+确保本机已安装 **Pandoc**，并可在命令行直接运行 `pandoc`。
+若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载。
+
+建议 Python 3.11 (64位，和 Office/WPS 位数一致)。
+
+```bash
+pip install psutil pyperclip pynput pystray pillow win10toast pywin32
+```
+
+---
+
+## 使用方法
+
+1. 启动脚本/程序(在发布页下载)：
+
+   ```bash
+   python main.py
+   ```
+
+   托盘区会出现一个图标。
+
+2. 打开 Word 或 WPS，光标放在需要插入的位置。
+
+3. 复制 Markdown 到剪贴板，按下热键 **Ctrl+B**。
+
+4. 转换结果会自动插入到文档中，并在右下角提示成功/失败。
+
+---
+
+## 配置
+
+首次运行会生成 `config.json`，可手动编辑：
+
+```json
+{
+  "hotkey": "<ctrl>+b",
+  "pandoc_path": "pandoc",
+  "reference_docx": null,
+  "save_dir": "%USERPROFILE%\\Documents\\md2docx_paste",
+  "keep_file": false,
+  "insert_target": "auto",
+  "notify": true
+}
+```
+
+字段说明：
+
+* `hotkey`：全局热键，语法如 `<ctrl>+<alt>+v`。
+* `pandoc_path`：Pandoc 可执行文件路径。
+* `save_dir`：保留文件时的保存目录。
+* `keep_file`：是否保留生成的 DOCX 文件。
+* `insert_target`：插入目标，可选 `auto` / `word` / `wps` / `none`。
+* `notify`：是否显示系统通知。
+
+修改后可在托盘菜单选择 **“重载配置/热键”** 立即生效。
+
+---
+
+## 托盘菜单
+
+* **启用热键**：开/关全局热键。
+* **插入目标**：切换为 Auto/Word/WPS/None。
+* **保留生成文件**：勾选后，文件保存在 `save_dir`。
+* **打开保存目录**、**查看日志**、**编辑配置**、**重载配置/热键**、**退出**。
+
+---
+
+## 打包为 exe
+
+使用 PyInstaller：
+
+```bash
+pyinstaller -F -w --name "MD2DOCX-HotPaste" --icon icon.ico main.py
+```
+
+生成的程序在 `dist/MD2DOCX-HotPaste.exe`。
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
