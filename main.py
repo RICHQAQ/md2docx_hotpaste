@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+__version__ = "0.1.0"  # 添加版本号
 import os, sys, json, tempfile, subprocess, pathlib, time, threading, io, traceback
 from datetime import datetime
 from typing import Optional
