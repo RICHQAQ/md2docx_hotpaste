@@ -1,0 +1,7 @@
+psutil
+pyperclip
+pynput
+pywin32
+pystray
+Pillow
+win10toast
