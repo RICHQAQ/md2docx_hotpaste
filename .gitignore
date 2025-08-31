@@ -218,7 +218,6 @@ __marimo__/
 config.json
 md2docx.log
 reference.docx
-main.py
 Output/MD2DOCX-HotPaste_pandoc-Setup.exe
 third_party/pandoc-3.7.0.2-windows-x86_64.zip
 third_party/pandoc/COPYING.rtf

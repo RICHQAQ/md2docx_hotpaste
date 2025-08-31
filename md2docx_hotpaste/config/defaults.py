@@ -1,0 +1,14 @@
+"""Default configuration values."""
+
+from typing import Dict, Any
+
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "hotkey": "<ctrl>+b",
+    "pandoc_path": "pandoc",
+    "reference_docx": None,  # 可选：Pandoc 参考模板；不需要就设为 None
+    "save_dir": r"%USERPROFILE%\Documents\md2docx_paste",
+    "keep_file": False,
+    "insert_target": "auto",  # auto|word|wps|none
+    "notify": True
+}
