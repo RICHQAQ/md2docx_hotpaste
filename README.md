@@ -1,4 +1,4 @@
-# MD→DOCX HotPaste
+# MD2DOCX HotPaste
 <p align="center">
   <img src="assets/icons/logo.png" alt="MD→DOCX HotPaste" width="160" height="160">
 </p>
@@ -24,9 +24,9 @@
 
 ---
 
-## 安装依赖
+## 📦安装依赖(可选)
 
-确保本机已安装 **Pandoc**，并可在命令行直接运行 `pandoc`。
+确保本机已安装 **Pandoc**，并可在命令行运行 `pandoc`。
 若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载安装即可。
 
 建议 Python 3.11 (64位，和 Office/WPS 位数一致)。
@@ -37,15 +37,12 @@ pip install psutil pyperclip pynput pystray pillow plyer pywin32
 
 ---
 
-## 使用方法
+## 🚀使用方法
 
-1. 启动脚本/程序(在发布页下载)：
+1. 下载可执行文件（[Releases 页面](https://github.com/RICHQAQ/md2docx_hotpaste/releases/)）：
 
-   ```bash
-   python main.py
-   ```
-
-   托盘区会出现一个图标。
+   * **MD2DOCX-HotPaste\_vx.x.x.exe**：**便携版**，需要你本机已经安装好 **Pandoc** 并能在命令行运行。
+   * **MD2DOCX-HotPaste\_pandoc-Setup.exe**：**一体化安装包**，自带 Pandoc，不需要另外配置环境。
 
 2. 打开 Word 或 WPS，光标放在需要插入的位置。
 
@@ -55,7 +52,7 @@ pip install psutil pyperclip pynput pystray pillow plyer pywin32
 
 ---
 
-## 配置
+## ⚙️配置
 
 首次运行会生成 `config.json`，可手动编辑：
 
