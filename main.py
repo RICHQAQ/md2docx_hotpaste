@@ -1,4 +1,4 @@
-__version__ = "0.1.0"  # 添加版本号
+__version__ = "0.1.1a"  # 添加版本号
 try:
     import ctypes
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MD2DOCX.HotPaste")
@@ -28,7 +28,7 @@ except Exception:
     TOASTER = None
 
 
-APP_NAME = "MD→DOCX HotPaste"
+APP_NAME = "MD2DOCX HotPaste"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "md2docx.log")
