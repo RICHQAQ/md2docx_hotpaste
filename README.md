@@ -23,7 +23,7 @@
 建议 Python 3.11 (64位，和 Office/WPS 位数一致)。
 
 ```bash
-pip install psutil pyperclip pynput pystray pillow win10toast pywin32
+pip install psutil pyperclip pynput pystray pillow plyer pywin32
 ```
 
 ---
@@ -89,7 +89,7 @@ pip install psutil pyperclip pynput pystray pillow win10toast pywin32
 使用 PyInstaller：
 
 ```bash
-pyinstaller -F -w --name "MD2DOCX-HotPaste" --icon icon.ico main.py
+pyinstaller --clean -F -w -n MD2DOCX-HotPaste_v0.1.1  --icon assets\icons\logo.ico  --add-data "assets\icons;assets\icons" --hidden-import plyer.platforms.win.notification  main.py
 ```
 
 生成的程序在 `dist/MD2DOCX-HotPaste.exe`。

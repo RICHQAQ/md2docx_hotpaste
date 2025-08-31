@@ -1,4 +1,10 @@
 __version__ = "0.1.0"  # 添加版本号
+try:
+    import ctypes
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MD2DOCX.HotPaste")
+except Exception:
+    pass
+
 import os, sys, json, tempfile, subprocess, pathlib, time, threading, io, traceback
 from datetime import datetime
 from typing import Optional
@@ -16,15 +22,26 @@ from PIL import Image, ImageDraw
 
 # 可选通知
 try:
-    from win10toast import ToastNotifier
-    TOASTER = ToastNotifier()
+    from plyer import notification
+    TOASTER = notification
 except Exception:
     TOASTER = None
+
 
 APP_NAME = "MD→DOCX HotPaste"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "md2docx.log")
+
+
+def resource_path(rel):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, rel)
+    return os.path.join(BASE_DIR, rel)
+
+
+APP_ICO_PATH = resource_path(os.path.join("assets", "icons", "logo.ico"))
+APP_PNG_PATH = resource_path(os.path.join("assets", "icons", "logo.png"))
 
 DEFAULT_CONFIG = {
     "hotkey": "<ctrl>+b",
@@ -87,20 +104,17 @@ def save_config():
 def notify(title, msg, ok=True):
     if not _state["config"].get("notify", True):
         return
-    try:
-        if _state["icon"]:
-            _state["icon"].icon = make_icon(ok=ok, flash=True)
-            _state["icon"].visible = True
-            def restore():
-                time.sleep(0.8)
-                _state["icon"].icon = make_icon(ok=ok)
-            threading.Thread(target=restore, daemon=True).start()
-    except Exception:
-        pass
     if TOASTER:
+        log(f"Notify: {title} - {msg}")
         try:
-            TOASTER.show_toast(title, msg, duration=3, threaded=True, icon_path=None)
+            TOASTER.notify(
+                title=title,
+                message=msg,
+                timeout=3,
+                app_icon=APP_ICO_PATH if os.path.exists(APP_ICO_PATH) else None
+            )
         except Exception:
+            log(f"Notify error: {traceback.format_exc()}")
             pass
 
 def get_foreground_process_name() -> str:
@@ -297,11 +311,28 @@ def make_icon(ok=True, flash=False):
     d.ellipse([10, 10, 54, 54], fill=color)
     return img
 
+def load_base_logo():
+    try:
+        return Image.open(APP_PNG_PATH).convert("RGBA")
+    except Exception:
+        return make_icon(ok=True)  # 兜底
+
+def make_tray_icon_with_status(ok: bool) -> Image.Image:
+    base = load_base_logo().copy()
+    w, h = base.size
+    d = ImageDraw.Draw(base)
+    r = int(min(w, h) * 0.28)
+    pad = int(r * 0.25)
+    x1, y1, x2, y2 = w - r - pad, h - r - pad, w - pad, h - pad
+    d.ellipse([x1-2, y1-2, x2+2, y2+2], fill=(255, 255, 255, 255))
+    d.ellipse([x1, y1, x2, y2], fill=(60,200,80,255) if ok else (220,70,70,255))
+    return base
+
 # ------------- 托盘菜单动作 -------------
 
 def on_toggle_enabled(icon, item):
     _state["enabled"] = not _state["enabled"]
-    icon.icon = make_icon(ok=_state["enabled"])
+    icon.icon = make_tray_icon_with_status(ok=_state["enabled"])
     notify(APP_NAME, "已启用热键" if _state["enabled"] else "已暂停热键", ok=_state["enabled"])
 
 def on_target_auto(icon, item):
@@ -380,6 +411,18 @@ def build_menu():
 
 # ------------- 核心流程 -------------
 
+def convert_latex_delimiters(text: str) -> str:
+    """将 \\[...\\] 转换为 $$...$$ 格式"""
+    import re
+    # 匹配 \[ 开始到 \] 结束的公式块
+    pattern = r'\\\[(.*?)\\\]'
+    
+    def replace_match(match):
+        formula = match.group(1).strip()
+        return f"$$\n{formula}\n$$"
+    
+    return re.sub(pattern, replace_match, text, flags=re.DOTALL)
+
 @ensure_com
 def do_convert_and_insert():
     cfg = _state["config"]
@@ -389,6 +432,9 @@ def do_convert_and_insert():
             notify(APP_NAME, "剪贴板为空，未处理。", ok=False)
             return
 
+        # 转换 LaTeX 公式格式
+        md = convert_latex_delimiters(md)
+        
         out_docx = generate_output_path(cfg.get("keep_file", False),
                                         cfg.get("save_dir", DEFAULT_CONFIG["save_dir"]))
         run_pandoc(
@@ -438,7 +484,8 @@ def do_convert_and_insert():
 def main():
     load_config()
     restart_hotkey()
-    icon = pystray.Icon(APP_NAME, make_icon(ok=True), APP_NAME, build_menu())
+    tray_img = make_tray_icon_with_status(ok=True)
+    icon = pystray.Icon(APP_NAME, tray_img, APP_NAME, build_menu())
     _state["icon"] = icon
     icon.run()
 

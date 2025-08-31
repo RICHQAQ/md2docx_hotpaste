@@ -4,4 +4,4 @@ pynput
 pywin32
 pystray
 Pillow
-win10toast
+plyer
