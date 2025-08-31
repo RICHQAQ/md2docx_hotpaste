@@ -385,11 +385,22 @@ def on_reload(icon, item):
 def on_quit(icon, item):
     _stop_hotkey_listener()
     icon.stop()
+    
+def on_toggle_notify(icon, item):
+    v = not _state["config"].get("notify", True)
+    _state["config"]["notify"] = v
+    save_config()
+    if v:
+        # 只在开启时提示一次；关闭时不再打扰
+        notify(APP_NAME, "已开启通知", ok=True)
+    else:
+        log("Notifications disabled via tray toggle")
 
 def build_menu():
     cfg = _state["config"]
     return pystray.Menu(
         pystray.MenuItem("启用热键", on_toggle_enabled, checked=lambda item: _state["enabled"]),
+        pystray.MenuItem("弹窗通知", on_toggle_notify, checked=lambda item: _state["config"].get("notify", True)),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem(
             "插入目标",
@@ -487,6 +498,16 @@ def main():
     tray_img = make_tray_icon_with_status(ok=True)
     icon = pystray.Icon(APP_NAME, tray_img, APP_NAME, build_menu())
     _state["icon"] = icon
+    if TOASTER:
+        try:
+            TOASTER.notify(
+                title=APP_NAME,
+                message="启动成功，已经运行在后台。",
+                timeout=3,
+                app_icon=APP_ICO_PATH if os.path.exists(APP_ICO_PATH) else None
+            )
+        except Exception:
+            log(f"Notify(force) error: {traceback.format_exc()}")
     icon.run()
 
 if __name__ == "__main__":

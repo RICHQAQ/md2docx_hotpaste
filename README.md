@@ -1,11 +1,19 @@
 # MD→DOCX HotPaste
-
+<p align="center">
+  <img src="assets/icons/logo.png" alt="MD→DOCX HotPaste" width="160" height="160">
+</p>
 一个常驻托盘的小工具：
 从 **剪贴板读取 Markdown**，调用 **Pandoc** 转换为 DOCX，并自动插入到 **Word/WPS** 光标位置。
 
 ---
 
 ## 功能特点
+
+### 演示效果
+
+<p align="center">
+  <img src="docs/demo.gif" alt="演示动图" width="480">
+</p>
 
 * 全局热键（默认 `Ctrl+B`）一键粘贴 Markdown → DOCX。
 * 自动识别当前前台应用：Word 或 WPS。
@@ -18,7 +26,7 @@
 ## 安装依赖
 
 确保本机已安装 **Pandoc**，并可在命令行直接运行 `pandoc`。
-若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载。
+若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载安装即可。
 
 建议 Python 3.11 (64位，和 Office/WPS 位数一致)。
 
@@ -89,7 +97,7 @@ pip install psutil pyperclip pynput pystray pillow plyer pywin32
 使用 PyInstaller：
 
 ```bash
-pyinstaller --clean -F -w -n MD2DOCX-HotPaste_v0.1.1  --icon assets\icons\logo.ico  --add-data "assets\icons;assets\icons" --hidden-import plyer.platforms.win.notification  main.py
+pyinstaller --clean -F -w -n MD2DOCX-HotPaste  --icon assets\icons\logo.ico  --add-data "assets\icons;assets\icons" --hidden-import plyer.platforms.win.notification  main.py
 ```
 
 生成的程序在 `dist/MD2DOCX-HotPaste.exe`。
