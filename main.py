@@ -197,19 +197,45 @@ def ensure_com(func):
 
 @ensure_com
 def insert_into_word(docx_path: str) -> bool:
-    """使用 InsertFile，将 DOCX 插入到 Word 当前光标位置。"""
+    """更稳的插入：确保有文档、切回正文、重试几次。"""
     try:
         try:
             app = win32com.client.GetActiveObject("Word.Application")
         except Exception:
             app = gencache.EnsureDispatch("Word.Application")
+
+        # 确保可见 & 有文档
+        try:
+            app.Visible = True
+        except Exception:
+            pass
         if getattr(app, "Documents", None) is None or app.Documents.Count == 0:
-            return False
+            app.Documents.Add()  # 没有文档就新建一个
+
+        # 切回主文档正文（避免停在页眉/页脚/导航窗格）
+        try:
+            # 0 = wdSeekMainDocument
+            app.ActiveWindow.View.SeekView = 0  
+        except Exception:
+            pass
+
+        # 使用 Selection.Range 更稳定
         sel = getattr(app, "Selection", None)
         if sel is None:
             return False
-        sel.InsertFile(docx_path)
-        return True
+        rng = sel.Range
+
+        # 重试：考虑到杀软/IO 等偶发因素
+        import time as _t
+        for _ in range(3):
+            try:
+                rng.InsertFile(docx_path)
+                return True
+            except Exception as e:
+                # 等 300ms 再试
+                _t.sleep(0.3)
+        return False
+
     except Exception as e:
         log(f"Insert Word failed: {e}")
         return False
@@ -471,7 +497,7 @@ def do_convert_and_insert():
         if not cfg.get("keep_file", False):
             try:
                 if inserted or target != "none":
-                    time.sleep(0.5)
+                    time.sleep(1.0)
                 if os.path.exists(out_docx):
                     os.remove(out_docx)
             except Exception as e:
