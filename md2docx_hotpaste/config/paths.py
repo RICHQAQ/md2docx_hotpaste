@@ -19,14 +19,32 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(get_base_dir(), relative_path)
 
 
+def get_user_data_dir() -> str:
+    """获取用户数据目录（跨平台）"""
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "MD2DOCX-HotPaste")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".md2docx_hotpaste")
+
+
+def ensure_user_data_dir():
+    """确保用户数据目录存在"""
+    data_dir = get_user_data_dir()
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
 def get_config_path() -> str:
     """获取配置文件路径"""
-    return os.path.join(get_base_dir(), "config.json")
+    data_dir = ensure_user_data_dir()
+    return os.path.join(data_dir, "config.json")
 
 
 def get_log_path() -> str:
     """获取日志文件路径"""
-    return os.path.join(get_base_dir(), "md2docx.log")
+    data_dir = ensure_user_data_dir()
+    return os.path.join(data_dir, "md2docx.log")
 
 
 def get_app_icon_path() -> str:
