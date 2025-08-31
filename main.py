@@ -28,7 +28,7 @@ except Exception:
     TOASTER = None
 
 
-APP_NAME = "MD→DOCX HotPaste"
+APP_NAME = "MD2DOCX HotPaste"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "md2docx.log")
@@ -45,7 +45,7 @@ APP_PNG_PATH = resource_path(os.path.join("assets", "icons", "logo.png"))
 
 DEFAULT_CONFIG = {
     "hotkey": "<ctrl>+b",
-    "pandoc_path": "pandoc",
+    "pandoc_path": os.path.join(os.path.dirname(sys.executable), "pandoc", "pandoc.exe"),
     "reference_docx": None,  # 可选：Pandoc 参考模板；不需要就设为 None
     "save_dir": r"%USERPROFILE%\Documents\md2docx_paste",
     "keep_file": False,
