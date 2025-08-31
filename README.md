@@ -2,6 +2,7 @@
 <p align="center">
   <img src="assets/icons/logo.png" alt="MD→DOCX HotPaste" width="160" height="160">
 </p>
+
 一个常驻托盘的小工具：
 从 **剪贴板读取 Markdown**，调用 **Pandoc** 转换为 DOCX，并自动插入到 **Word/WPS** 光标位置。
 
