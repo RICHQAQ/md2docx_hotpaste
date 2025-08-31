@@ -1,5 +1,5 @@
 #define MyAppName "MD2DOCX HotPaste"
-#define MyAppVersion "0.1.1b"
+#define MyAppVersion "0.1.2"
 #define MyAppPublisher "RichQAQ"
 #define MyAppExeName "MD2DOCX-HotPaste.exe"
 
