@@ -11,6 +11,7 @@ except ImportError:
 from ..core.constants import NOTIFICATION_TIMEOUT
 from ..config.paths import get_app_icon_path
 from ..infra.logging import log
+from ..core.state import app_state
 
 
 class NotificationService:
@@ -34,6 +35,9 @@ class NotificationService:
         if not _NOTIFICATION_AVAILABLE:
             return
         
+        if app_state.config.get("notify", True) is False:
+            return
+
         try:
             notification.notify(
                 title=title,
