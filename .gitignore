@@ -225,3 +225,11 @@ third_party/pandoc/COPYRIGHT.txt
 third_party/pandoc/MANUAL.html
 third_party/pandoc/pandoc.exe
 Output/MD2DOCX-HotPaste-Setup.exe
+.idea/
+.idea/.gitignore
+.idea/md2docx_hotpaste.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
