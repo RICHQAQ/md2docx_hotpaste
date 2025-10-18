@@ -10,6 +10,7 @@ from ...services.notify import NotificationService
 from ...infra.fs import ensure_dir
 from ...infra.logging import log
 from .icon import create_status_icon
+from ..hotkey.dialog import HotkeyDialog
 
 
 class TrayMenuManager:
@@ -29,6 +30,12 @@ class TrayMenuManager:
         config = app_state.config
         
         return pystray.Menu(
+            # 快捷显示
+            pystray.MenuItem(
+                f"快捷键: {app_state.config['hotkey']}",
+                lambda icon, item: None,
+                enabled=False
+            ),
             pystray.MenuItem(
                 "启用热键",
                 self._on_toggle_enabled,
@@ -39,6 +46,8 @@ class TrayMenuManager:
                 self._on_toggle_notify,
                 checked=lambda item: config.get("notify", True)
             ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("设置热键", self._on_set_hotkey),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "插入文档目标",
@@ -98,6 +107,48 @@ class TrayMenuManager:
         status = "已启用热键" if app_state.enabled else "已暂停热键"
         icon.menu = self.build_menu()
         self.notification_service.notify("MD2DOCX HotPaste", status, ok=app_state.enabled)
+    
+    def _on_set_hotkey(self, icon, item):
+        """设置热键"""
+        def save_hotkey(new_hotkey: str):
+            """保存新热键并重启热键绑定"""
+            try:
+                # 更新配置
+                app_state.config["hotkey"] = new_hotkey
+                app_state.hotkey_str = new_hotkey
+                self._save_config()
+                
+                # 重启热键绑定
+                if self.restart_hotkey_callback:
+                    self.restart_hotkey_callback()
+                
+                # 刷新菜单
+                icon.menu = self.build_menu()
+                
+                log(f"Hotkey changed to: {new_hotkey}")
+                self.notification_service.notify(
+                    "MD2DOCX HotPaste",
+                    f"热键已更新为：{new_hotkey}",
+                    ok=True)
+            except Exception as e:
+                log(f"Failed to save hotkey: {e}")
+                self.notification_service.notify(
+                    "MD2DOCX HotPaste",
+                    f"保存热键失败：{str(e)}",
+                    ok=False)
+                raise
+        
+        # 直接在主线程中显示对话框
+        # tkinter 必须在主线程中运行，不能使用后台线程
+        try:
+            dialog = HotkeyDialog(
+                current_hotkey=app_state.hotkey_str,
+                on_save=save_hotkey
+            )
+            dialog.show()
+        except Exception as e:
+            log(f"Failed to show hotkey dialog: {e}")
+            self.notification_service.notify("MD2DOCX HotPaste", f"打开热键设置失败：{str(e)}", ok=False)
     
     def _on_toggle_notify(self, icon, item):
         """切换通知状态"""

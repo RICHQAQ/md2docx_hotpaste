@@ -3,6 +3,8 @@
 import traceback
 import io
 
+from md2docx_hotpaste.infra.process import detect_active_target
+
 from ...services.clipboard import get_clipboard_text, is_clipboard_empty
 from ...services.latex import convert_latex_delimiters
 from ...services.pandoc import PandocConverter
@@ -48,23 +50,9 @@ class PasteController:
             
             # 2.1. 智能识别：如果是 Markdown 表格，尝试粘贴到 Excel
             if config.get("enable_excel", True):
-                table_data = parse_markdown_table(md_text)
-                if table_data is not None:
-                    log("Detected Markdown table, trying to paste to Excel")
-                    try:
-                        keep_format = config.get("excel_keep_format", True)
-                        success = self.excel_inserter.insert(table_data, keep_format=keep_format)
-                        if success:
-                            self.notification_service.notify(
-                                "MD2Excel HotPaste",
-                                f"已插入 {len(table_data)} 行表格到 Excel。",
-                                ok=True
-                            )
-                            return
-                    except InsertError as e:
-                        # Excel 插入失败，继续尝试 Word/WPS 流程
-                        log(f"Excel insert failed, fallback to Word/WPS: {e}")
-            
+                if self._perform_excel_insertion(md_text, config):
+                    return
+        
             # 2.2. 继续原有的 Word/WPS 流程
             md_text = convert_latex_delimiters(md_text)
             
@@ -149,10 +137,38 @@ class PasteController:
         else:
             log(f"Unknown insert target: {target}")
             return False
-    
+        
+    def _perform_excel_insertion(self, md_text: str, config) -> bool:
+        if detect_active_target() == "excel":
+            table_data = parse_markdown_table(md_text)
+            if table_data is not None:
+                log("Detected Markdown table, trying to paste to Excel")
+                try:
+                    keep_format = config.get("excel_keep_format", True)
+                    success = self.excel_inserter.insert(table_data, keep_format=keep_format)
+                    if success:
+                        self.notification_service.notify(
+                            "MD2Excel HotPaste",
+                            f"已插入 {len(table_data)} 行表格到 Excel。",
+                            ok=True
+                        )
+                        return
+                except InsertError as e:
+                    # Excel 插入失败，继续尝试 Word/WPS 流程
+                    log(f"Excel insert failed, fallback to Word/WPS: {e}") 
+            else:
+                self.notification_service.notify(
+                    "MD2Excel HotPaste",
+                    "未检测到有效的 Markdown 表格，请确认剪贴板内容。",
+                    ok=False
+                )
+                return True  # 已处理，避免继续 Word/WPS 流程
+            
     def _show_result_notification(self, target: str, inserted: bool) -> None:
         """显示操作结果通知"""
-        if target == "none":
+        if target == "excel":
+            pass
+        elif target == "none":
             self.notification_service.notify(
                 "MD2DOCX HotPaste",
                 "已生成 DOCX（仅生成，不插入）。",

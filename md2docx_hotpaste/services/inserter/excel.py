@@ -141,9 +141,6 @@ class ExcelInserter:
             except Exception:
                 raise InsertError("未找到运行中的 Excel，请先打开 Excel。")
             
-            # 判断是不是前台运行excel
-            if detect_active_target() != "excel":
-                return False
             try:
                 # 获取当前活动的工作表
                 sheet = excel.ActiveSheet
