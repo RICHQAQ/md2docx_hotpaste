@@ -3,7 +3,7 @@
 import re
 from typing import List, Optional
 
-from md2docx_hotpaste.infra.process import detect_active_target
+from ...infra.process import detect_active_target
 from ...core.errors import InsertError
 from ...infra.logging import log
 
@@ -108,7 +108,7 @@ def parse_markdown_table(md_text: str) -> Optional[List[List[str]]]:
 
 
 class ExcelInserter:
-    """Excel 表格插入器"""
+    """Excel 表格插入器(支持 MS Excel 和 WPS 表格)"""
     
     def __init__(self):
         pass
@@ -136,10 +136,10 @@ class ExcelInserter:
             pythoncom.CoInitialize()
             
             try:
-                # 获取当前活动的 Excel 实例
-                excel = win32com.client.GetActiveObject("Excel.Application")
-            except Exception:
-                raise InsertError("未找到运行中的 Excel，请先打开 Excel。")
+                # 尝试获取活动的 Excel 实例 (MS Excel 或 WPS 表格)
+                excel = self._get_excel_application()
+            except Exception as e:
+                raise InsertError(f"未找到运行中的 Excel 或 WPS 表格，请先打开。错误: {e}")
             
             try:
                 # 获取当前活动的工作表
@@ -200,6 +200,53 @@ class ExcelInserter:
         except Exception as e:
             log(f"Failed to insert table to Excel: {e}")
             raise InsertError(f"Excel 插入失败: {e}")
+    
+    def _get_excel_application(self):
+        """
+        获取 Excel 应用程序实例(尝试 MS Excel 和 WPS 表格)
+        
+        Returns:
+            Excel 应用程序对象
+            
+        Raises:
+            Exception: 无法获取任何 Excel 实例时
+        """
+        import win32com.client
+        
+        # 检测当前前台应用
+        target = detect_active_target()
+        
+        # 根据检测结果优先尝试对应的 ProgID
+        if target == "wps_excel":
+            # WPS 表格优先 - ket.Application 是正确的 ProgID
+            prog_ids = [
+                "ket.Application",    # WPS 表格正确的 ProgID
+                "Excel.Application",  # WPS 表格兼容 Excel ProgID
+            ]
+        else:
+            # MS Excel 优先
+            prog_ids = [
+                "Excel.Application",  # Microsoft Excel
+                "ket.Application",    # 回退到 WPS 表格
+            ]
+        
+        last_error = None
+        for prog_id in prog_ids:
+            try:
+                # 尝试连接现有实例
+                excel = win32com.client.GetActiveObject(prog_id)
+                log(f"Successfully connected to {prog_id} (detected target: {target})")
+                return excel
+            except Exception as e:
+                last_error = e
+                log(f"Failed to connect to {prog_id}: {e}")
+                continue
+        
+        # 如果都失败了，抛出最后的错误
+        if last_error:
+            raise last_error
+        else:
+            raise Exception("No Excel or WPS Spreadsheet application found")
     
     def _clean_markdown_formatting(self, text: str) -> str:
         """

@@ -139,23 +139,29 @@ class PasteController:
             return False
         
     def _perform_excel_insertion(self, md_text: str, config) -> bool:
-        if detect_active_target() == "excel":
+        """尝试将 Markdown 表格插入到 Excel 或 WPS 表格"""
+        target = detect_active_target()
+        
+        # 检测是否为 Excel 或 WPS 表格
+        if target in ("excel", "wps_excel"):
             table_data = parse_markdown_table(md_text)
             if table_data is not None:
-                log("Detected Markdown table, trying to paste to Excel")
+                app_name = "WPS 表格" if target == "wps_excel" else "Excel"
+                log(f"Detected Markdown table, trying to paste to {app_name}")
                 try:
                     keep_format = config.get("excel_keep_format", True)
                     success = self.excel_inserter.insert(table_data, keep_format=keep_format)
                     if success:
                         self.notification_service.notify(
                             "MD2Excel HotPaste",
-                            f"已插入 {len(table_data)} 行表格到 Excel。",
+                            f"已插入 {len(table_data)} 行表格到 {app_name}。",
                             ok=True
                         )
-                        return
+                        return True
                 except InsertError as e:
                     # Excel 插入失败，继续尝试 Word/WPS 流程
-                    log(f"Excel insert failed, fallback to Word/WPS: {e}") 
+                    log(f"{app_name} insert failed, fallback to Word/WPS: {e}")
+                    return False
             else:
                 self.notification_service.notify(
                     "MD2Excel HotPaste",
@@ -163,6 +169,8 @@ class PasteController:
                     ok=False
                 )
                 return True  # 已处理，避免继续 Word/WPS 流程
+        
+        return False  # 不是 Excel 相关应用，继续其他流程
             
     def _show_result_notification(self, target: str, inserted: bool) -> None:
         """显示操作结果通知"""

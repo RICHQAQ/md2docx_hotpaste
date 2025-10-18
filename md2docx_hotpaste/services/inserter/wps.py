@@ -25,7 +25,7 @@ class WPSInserter:
             InsertError: 插入失败时
         """
         # WPS 可能有多个不同的 ProgID
-        prog_ids = ["kwps.Application", "wps.Application"]
+        prog_ids = ["kwps.Application", "KWPS.Application"]
         
         for prog_id in prog_ids:
             try:

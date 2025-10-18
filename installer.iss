@@ -1,5 +1,5 @@
 #define MyAppName "MD2DOCX HotPaste"
-#define MyAppVersion "0.1.3"
+#define MyAppVersion "0.1.3.1"
 #define MyAppPublisher "RichQAQ"
 #define MyAppExeName "MD2DOCX-HotPaste.exe"
 
@@ -16,7 +16,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename=MD2DOCX-HotPaste_pandoc-Setup
+OutputBaseFilename=MD2DOCX-HotPaste_pandoc-Setup_v{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
