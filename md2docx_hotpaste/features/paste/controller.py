@@ -9,6 +9,7 @@ from ...services.pandoc import PandocConverter
 from ...services.inserter.selector import TargetSelector
 from ...services.inserter.word import WordInserter
 from ...services.inserter.wps import WPSInserter
+from ...services.inserter.excel import parse_markdown_table, ExcelInserter
 from ...services.notify import NotificationService
 from ...infra.fs import generate_output_path
 from ...infra.logging import log
@@ -24,6 +25,7 @@ class PasteController:
         self.target_selector = TargetSelector()
         self.word_inserter = WordInserter()
         self.wps_inserter = WPSInserter()
+        self.excel_inserter = ExcelInserter()
         self.cleanup_manager = FileCleanupManager()
         self.notification_service = NotificationService()
         self.pandoc_converter = None  # 延迟初始化
@@ -42,10 +44,31 @@ class PasteController:
             
             # 2. 获取剪贴板内容并处理
             md_text = get_clipboard_text()
+            config = app_state.config
+            
+            # 2.1. 智能识别：如果是 Markdown 表格，尝试粘贴到 Excel
+            if config.get("enable_excel", True):
+                table_data = parse_markdown_table(md_text)
+                if table_data is not None:
+                    log("Detected Markdown table, trying to paste to Excel")
+                    try:
+                        keep_format = config.get("excel_keep_format", True)
+                        success = self.excel_inserter.insert(table_data, keep_format=keep_format)
+                        if success:
+                            self.notification_service.notify(
+                                "MD2Excel HotPaste",
+                                f"已插入 {len(table_data)} 行表格到 Excel。",
+                                ok=True
+                            )
+                            return
+                    except InsertError as e:
+                        # Excel 插入失败，继续尝试 Word/WPS 流程
+                        log(f"Excel insert failed, fallback to Word/WPS: {e}")
+            
+            # 2.2. 继续原有的 Word/WPS 流程
             md_text = convert_latex_delimiters(md_text)
             
             # 3. 生成输出路径
-            config = app_state.config
             output_path = generate_output_path(
                 keep_file=config.get("keep_file", False),
                 save_dir=config.get("save_dir", "")

@@ -39,6 +39,8 @@ def detect_active_target() -> str:
     
     if "winword" in process_name:
         return "word"
+    elif "excel" in process_name:
+        return "excel"
     elif "wps" in process_name:
         return "wps"
     else:

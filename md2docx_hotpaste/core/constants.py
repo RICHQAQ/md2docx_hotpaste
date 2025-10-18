@@ -1,7 +1,7 @@
 """Application constants."""
 
 # 触发防抖时间（秒）
-FIRE_DEBOUNCE_SEC = 1
+FIRE_DEBOUNCE_SEC = 0.5
 
 # 重试相关
 WORD_INSERT_RETRY_COUNT = 3

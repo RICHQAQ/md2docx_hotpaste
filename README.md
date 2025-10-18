@@ -6,6 +6,8 @@
 一个常驻托盘的小工具：
 从 **剪贴板读取 Markdown**，调用 **Pandoc** 转换为 DOCX，并自动插入到 **Word/WPS** 光标位置。
 
+**✨ 新功能**：智能识别 Markdown 表格，一键粘贴到 **Excel**！
+
 ---
 
 ## 功能特点
@@ -17,6 +19,7 @@
 </p>
 
 * 全局热键（默认 `Ctrl+B`）一键粘贴 Markdown → DOCX。
+* **✨ 智能识别 Markdown 表格**，自动粘贴到 Excel（需 Excel 已打开）。
 * 自动识别当前前台应用：Word 或 WPS。
 * 托盘菜单，可切换目标、保留文件、查看日志/配置等。
 * 支持系统通知提醒。
@@ -32,11 +35,15 @@
    若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载安装即可。
    * **MD2DOCX-HotPaste\_pandoc-Setup.exe**：**一体化安装包**，自带 Pandoc，不需要另外配置环境。
 
-2. 打开 Word 或 WPS，光标放在需要插入的位置。
+2. 打开 Word、WPS 或 Excel，光标放在需要插入的位置。
 
 3. 复制 Markdown 到剪贴板，按下热键 **Ctrl+B**。
 
-4. 转换结果会自动插入到文档中，并在右下角提示成功/失败。
+4. 转换结果会自动插入到文档中：
+   - **Markdown 表格** → 自动粘贴到 Excel（如果 Excel 已打开）
+   - **普通 Markdown** → 转换为 DOCX 并插入 Word/WPS
+
+5. 右下角会提示成功/失败。
 
 ---
 
@@ -52,7 +59,9 @@
   "save_dir": "%USERPROFILE%\\Documents\\md2docx_paste",
   "keep_file": false,
   "insert_target": "auto",
-  "notify": true
+  "notify": true,
+  "enable_excel": true,
+  "excel_keep_format": true
 }
 ```
 
@@ -64,6 +73,8 @@
 * `keep_file`：是否保留生成的 DOCX 文件。
 * `insert_target`：插入目标，可选 `auto` / `word` / `wps` / `none`。
 * `notify`：是否显示系统通知。
+* **`enable_excel`**：**✨ 新功能** - 是否启用智能识别 Markdown 表格并粘贴到 Excel（默认 true）。
+* **`excel_keep_format`**：**✨ 新功能** - Excel 粘贴时是否保留 Markdown 格式（粗体、斜体、代码等），默认 true。
 
 修改后可在托盘菜单选择 **“重载配置/热键”** 立即生效。
 
