@@ -104,30 +104,41 @@ def detect_wps_type() -> str:
     # 方法3: 通过窗口标题关键词判断
     log("COM 检测失败,使用窗口标题判断")
     
-    # WPS 文字的明确标识(优先级高)
-    word_keywords = [
-        "文字文稿",      # WPS 文字默认文件名 - 最高优先级!
+    # 优先级1: 文件后缀判断（最明确）
+    # WPS 表格的文件后缀
+    excel_extensions = [
+        ".et",
+        ".xls",
+        ".xlsx",
+        ".csv",
+    ]
+    
+    # 先检查表格文件后缀
+    for ext in excel_extensions:
+        if ext in window_title.lower():
+            log(f"通过窗口标题后缀 '{ext}' 识别为 WPS 表格")
+            return "wps_excel"
+    
+    # WPS 文字的文件后缀
+    word_extensions = [
         ".doc",
         ".docx",
         ".wps",
     ]
     
-    # 先检查是否明确是 WPS 文字
-    for keyword in word_keywords:
-        if keyword in window_title:
-            log(f"通过窗口标题关键词 '{keyword}' 识别为 WPS 文字")
+    # 检查文字文件后缀
+    for ext in word_extensions:
+        if ext in window_title.lower():
+            log(f"通过窗口标题后缀 '{ext}' 识别为 WPS 文字")
             return "wps"
     
-    # WPS 表格的标识
+    # 优先级2: 关键词判断
+    # WPS 表格的关键词
     excel_keywords = [
         "WPS 表格",
         " - WPS Spreadsheets",
         " ET ",
         "工作簿",
-        ".et",
-        ".xls",
-        ".xlsx",
-        ".csv",
     ]
     
     # 检查是否是 WPS 表格
@@ -135,6 +146,19 @@ def detect_wps_type() -> str:
         if keyword in window_title:
             log(f"通过窗口标题关键词 '{keyword}' 识别为 WPS 表格")
             return "wps_excel"
+    
+    # WPS 文字的关键词
+    word_keywords = [
+        "文字文稿",
+        "WPS 文字",
+        " - WPS Writer",
+    ]
+    
+    # 检查是否是 WPS 文字
+    for keyword in word_keywords:
+        if keyword in window_title:
+            log(f"通过窗口标题关键词 '{keyword}' 识别为 WPS 文字")
+            return "wps"
     
     # 默认认为是 WPS 文字
     log("无明确标识,默认识别为 WPS 文字")

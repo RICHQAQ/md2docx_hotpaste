@@ -11,7 +11,7 @@ from ...services.pandoc import PandocConverter
 from ...services.inserter.selector import TargetSelector
 from ...services.inserter.word import WordInserter
 from ...services.inserter.wps import WPSInserter
-from ...services.inserter.excel import parse_markdown_table, ExcelInserter
+from ...services.inserter.excel import parse_markdown_table, MSExcelInserter, WPSExcelInserter
 from ...services.notify import NotificationService
 from ...infra.fs import generate_output_path
 from ...infra.logging import log
@@ -27,7 +27,8 @@ class PasteController:
         self.target_selector = TargetSelector()
         self.word_inserter = WordInserter()
         self.wps_inserter = WPSInserter()
-        self.excel_inserter = ExcelInserter()
+        self.ms_excel_inserter = MSExcelInserter()
+        self.wps_excel_inserter = WPSExcelInserter()
         self.cleanup_manager = FileCleanupManager()
         self.notification_service = NotificationService()
         self.pandoc_converter = None  # 延迟初始化
@@ -44,49 +45,29 @@ class PasteController:
                 )
                 return
             
-            # 2. 获取剪贴板内容并处理
+            # 2. 获取剪贴板内容和配置
             md_text = get_clipboard_text()
             config = app_state.config
             
-            # 2.1. 智能识别：如果是 Markdown 表格，尝试粘贴到 Excel
-            if config.get("enable_excel", True):
-                if self._perform_excel_insertion(md_text, config):
-                    return
-        
-            # 2.2. 继续原有的 Word/WPS 流程
-            md_text = convert_latex_delimiters(md_text)
+            # 3. 检测当前活动应用
+            target = detect_active_target()
+            log(f"Detected active target: {target}")
             
-            # 3. 生成输出路径
-            output_path = generate_output_path(
-                keep_file=config.get("keep_file", False),
-                save_dir=config.get("save_dir", "")
-            )
-            
-            # 4. 转换为 DOCX
-            self._ensure_pandoc_converter()
-            self.pandoc_converter.convert_to_docx(
-                md_text=md_text,
-                output_path=output_path,
-                reference_docx=config.get("reference_docx")
-            )
-            
-            # 5. 确定插入目标
-            configured_target = config.get("insert_target", "auto")
-            target = self.target_selector.resolve_target(configured_target)
-            
-            # 6. 执行插入
-            inserted = self._perform_insertion(output_path, target)
-            
-            # 7. 清理文件
-            self.cleanup_manager.cleanup_if_needed(
-                file_path=output_path,
-                keep_file=config.get("keep_file", False),
-                insert_success=inserted,
-                target=target
-            )
-            
-            # 8. 显示结果通知
-            self._show_result_notification(target, inserted)
+            # 4. 根据目标应用选择处理流程
+            if target in ("excel", "wps_excel") and config.get("enable_excel", True):
+                # Excel/WPS表格流程：直接插入表格数据
+                self._handle_excel_flow(md_text, target, config)
+            elif target in ("word", "wps", "none"):
+                # Word/WPS文字流程：转换为DOCX后插入
+                self._handle_word_flow(md_text, target, config)
+            else:
+                # 未知目标
+                log(f"Unknown or unsupported target: {target}")
+                self.notification_service.notify(
+                    "MD2DOCX HotPaste",
+                    "未检测到支持的应用，请打开 Word/WPS/Excel。",
+                    ok=False
+                )
             
         except ClipboardError as e:
             log(f"Clipboard error: {e}")
@@ -114,83 +95,158 @@ class PasteController:
                 ok=False
             )
     
+    def _handle_excel_flow(self, md_text: str, target: str, config: dict) -> None:
+        """
+        Excel/WPS表格流程：解析Markdown表格并直接插入
+        
+        Args:
+            md_text: Markdown文本
+            target: 目标应用 (excel 或 wps_excel)
+            config: 配置字典
+        """
+        # 根据目标选择插入器
+        if target == "wps_excel":
+            inserter = self.wps_excel_inserter
+            app_name = "WPS 表格"
+        else:  # excel
+            inserter = self.ms_excel_inserter
+            app_name = "Excel"
+        
+        # 解析Markdown表格
+        table_data = parse_markdown_table(md_text)
+        
+        if table_data is None:
+            # 不是有效的Markdown表格
+            self.notification_service.notify(
+                "MD2Excel HotPaste",
+                f"未检测到有效的 Markdown 表格。\n当前应用: {app_name}",
+                ok=False
+            )
+            return
+        
+        # 尝试插入表格
+        log(f"Detected Markdown table with {len(table_data)} rows, inserting to {app_name}")
+        try:
+            keep_format = config.get("excel_keep_format", True)
+            success = inserter.insert(table_data, keep_format=keep_format)
+            
+            if success:
+                self.notification_service.notify(
+                    "MD2Excel HotPaste",
+                    f"已插入 {len(table_data)} 行表格到 {app_name}。",
+                    ok=True
+                )
+        except InsertError as e:
+            log(f"{app_name} insert failed: {e}")
+            self.notification_service.notify(
+                "MD2Excel HotPaste",
+                f"插入到 {app_name} 失败。\n{str(e)}",
+                ok=False
+            )
+    
+    def _handle_word_flow(self, md_text: str, target: str, config: dict) -> None:
+        """
+        Word/WPS文字流程：转换Markdown为DOCX并插入
+        
+        Args:
+            md_text: Markdown文本
+            target: 目标应用 (word, wps 或 none)
+            config: 配置字典
+        """
+        # 1. 处理LaTeX公式
+        md_text = convert_latex_delimiters(md_text)
+        
+        # 2. 生成输出路径
+        output_path = generate_output_path(
+            keep_file=config.get("keep_file", False),
+            save_dir=config.get("save_dir", "")
+        )
+        
+        # 3. 转换为DOCX
+        self._ensure_pandoc_converter()
+        self.pandoc_converter.convert_to_docx(
+            md_text=md_text,
+            output_path=output_path,
+            reference_docx=config.get("reference_docx")
+        )
+        log(f"Converted Markdown to DOCX: {output_path}")
+        
+        # 4. 根据配置确定最终插入目标
+        configured_target = config.get("insert_target", "auto")
+        if configured_target != "auto":
+            # 用户指定了目标，使用TargetSelector解析
+            target = self.target_selector.resolve_target(configured_target)
+            log(f"User configured target: {configured_target}, resolved to: {target}")
+        
+        # 5. 执行插入
+        inserted = self._perform_word_insertion(output_path, target)
+        
+        # 6. 清理文件
+        self.cleanup_manager.cleanup_if_needed(
+            file_path=output_path,
+            keep_file=config.get("keep_file", False),
+            insert_success=inserted,
+            target=target
+        )
+        
+        # 7. 显示结果通知
+        self._show_word_result(target, inserted)
+    
     def _ensure_pandoc_converter(self) -> None:
         """确保 Pandoc 转换器已初始化"""
         if self.pandoc_converter is None:
             pandoc_path = app_state.config.get("pandoc_path", "pandoc")
             self.pandoc_converter = PandocConverter(pandoc_path)
     
-    def _perform_insertion(self, docx_path: str, target: str) -> bool:
-        """执行文档插入"""
+    def _perform_word_insertion(self, docx_path: str, target: str) -> bool:
+        """
+        执行Word/WPS文档插入
+        
+        Args:
+            docx_path: DOCX文件路径
+            target: 目标应用
+            
+        Returns:
+            True 如果插入成功
+        """
         if target == "none":
+            log("Target is 'none', skip insertion")
             return False
         elif target == "word":
             try:
                 return self.word_inserter.insert(docx_path)
-            except InsertError:
+            except InsertError as e:
+                log(f"Word insertion failed: {e}")
                 return False
         elif target == "wps":
             try:
                 return self.wps_inserter.insert(docx_path)
-            except InsertError:
+            except InsertError as e:
+                log(f"WPS insertion failed: {e}")
                 return False
         else:
             log(f"Unknown insert target: {target}")
             return False
-        
-    def _perform_excel_insertion(self, md_text: str, config) -> bool:
-        """尝试将 Markdown 表格插入到 Excel 或 WPS 表格"""
-        target = detect_active_target()
-        
-        # 检测是否为 Excel 或 WPS 表格
-        if target in ("excel", "wps_excel"):
-            table_data = parse_markdown_table(md_text)
-            if table_data is not None:
-                app_name = "WPS 表格" if target == "wps_excel" else "Excel"
-                log(f"Detected Markdown table, trying to paste to {app_name}")
-                try:
-                    keep_format = config.get("excel_keep_format", True)
-                    success = self.excel_inserter.insert(table_data, keep_format=keep_format)
-                    if success:
-                        self.notification_service.notify(
-                            "MD2Excel HotPaste",
-                            f"已插入 {len(table_data)} 行表格到 {app_name}。",
-                            ok=True
-                        )
-                        return True
-                except InsertError as e:
-                    # Excel 插入失败，继续尝试 Word/WPS 流程
-                    log(f"{app_name} insert failed, fallback to Word/WPS: {e}")
-                    return False
-            else:
-                self.notification_service.notify(
-                    "MD2Excel HotPaste",
-                    "未检测到有效的 Markdown 表格，请确认剪贴板内容。",
-                    ok=False
-                )
-                return True  # 已处理，避免继续 Word/WPS 流程
-        
-        return False  # 不是 Excel 相关应用，继续其他流程
-            
-    def _show_result_notification(self, target: str, inserted: bool) -> None:
-        """显示操作结果通知"""
-        if target == "excel":
-            pass
-        elif target == "none":
+    
+    def _show_word_result(self, target: str, inserted: bool) -> None:
+        """显示Word/WPS流程的结果通知"""
+        if target == "none":
             self.notification_service.notify(
                 "MD2DOCX HotPaste",
                 "已生成 DOCX（仅生成，不插入）。",
                 ok=True
             )
         elif inserted:
+            app_name = "Word" if target == "word" else "WPS 文字"
             self.notification_service.notify(
                 "MD2DOCX HotPaste",
-                f"已插入到 {target.upper()}。",
+                f"已插入到 {app_name}。",
                 ok=True
             )
         else:
+            app_name = "Word" if target == "word" else "WPS 文字"
             self.notification_service.notify(
                 "MD2DOCX HotPaste",
-                f"未能插入到 {target.upper()}，请确认软件已打开且有光标。",
+                f"未能插入到 {app_name}，请确认软件已打开且有光标。",
                 ok=False
             )
