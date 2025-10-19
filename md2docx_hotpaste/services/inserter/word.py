@@ -11,16 +11,13 @@ from ...core.constants import WORD_INSERT_RETRY_COUNT, WORD_INSERT_RETRY_DELAY
 from ...core.errors import InsertError
 
 
-class WordInserter(BaseDocumentInserter):
-    """Word 文档插入器"""
-    
-    def __init__(self):
-        super().__init__(prog_id="Word.Application", app_name="Word")
+class BaseWordInserter(BaseDocumentInserter):
+    """Word 类文档插入器基类（适用于 Word 和 WPS 文字）"""
     
     @ensure_com
     def insert(self, docx_path: str) -> bool:
         """
-        将 DOCX 文件插入到 Word 当前光标位置
+        将 DOCX 文件插入到当前光标位置
         
         Args:
             docx_path: DOCX 文件路径
@@ -35,27 +32,27 @@ class WordInserter(BaseDocumentInserter):
             app = self._get_application()
             return self._perform_insertion(app, docx_path)
         except Exception as e:
-            log(f"Word insertion failed: {e}")
-            raise InsertError(f"Word insertion failed: {e}")
-    
-    def _get_application(self):
-        """获取 Word 应用程序实例"""
-        try:
-            # 尝试连接现有的 Word 实例
-            app = win32com.client.GetActiveObject(self.prog_id)
-        except Exception:
-            app = gencache.EnsureDispatch(self.prog_id)
-        
-        # 确保 Word 可见并有文档
-        self._ensure_word_ready(app)
-        return app
+            log(f"{self.app_name} insertion failed: {e}")
+            raise InsertError(f"{self.app_name} 插入失败: {e}")
     
     def _perform_insertion(self, app, docx_path: str) -> bool:
-        """执行实际的插入操作"""
+        """
+        执行实际的插入操作
+        
+        Args:
+            app: 应用程序对象
+            docx_path: DOCX 文件路径
+            
+        Returns:
+            True 如果插入成功
+            
+        Raises:
+            InsertError: 插入失败时
+        """
         # 获取当前选择区域
-        selection = getattr(app, "Selection", None)
+        selection = self._get_selection(app)
         if selection is None:
-            raise InsertError("Cannot access Word selection")
+            raise InsertError(f"无法访问 {self.app_name} 选择区域")
         
         range_obj = selection.Range
         
@@ -63,18 +60,70 @@ class WordInserter(BaseDocumentInserter):
         for attempt in range(WORD_INSERT_RETRY_COUNT):
             try:
                 range_obj.InsertFile(docx_path)
-                log(f"Successfully inserted into Word: {docx_path}")
+                log(f"Successfully inserted into {self.app_name}: {docx_path}")
                 return True
             except Exception as e:
                 if attempt < WORD_INSERT_RETRY_COUNT - 1:
-                    log(f"Word insert attempt {attempt + 1} failed, retrying: {e}")
+                    log(f"{self.app_name} insert attempt {attempt + 1} failed, retrying: {e}")
                     time.sleep(WORD_INSERT_RETRY_DELAY)
                 else:
-                    raise InsertError(f"Failed to insert after {WORD_INSERT_RETRY_COUNT} attempts: {e}")
+                    raise InsertError(f"插入失败（已重试 {WORD_INSERT_RETRY_COUNT} 次）: {e}")
         
         return False
     
-    def _ensure_word_ready(self, app) -> None:
+    def _get_selection(self, app):
+        """
+        获取选择对象
+        
+        Args:
+            app: 应用程序对象
+            
+        Returns:
+            Selection 对象
+        """
+        return getattr(app, "Selection", None)
+    
+    def _ensure_app_ready(self, app) -> None:
+        """
+        确保应用程序处于就绪状态
+        
+        Args:
+            app: 应用程序对象
+        """
+        # 默认实现：无需额外操作
+        pass
+
+
+class WordInserter(BaseWordInserter):
+    """Microsoft Word 文档插入器"""
+    
+    def __init__(self):
+        super().__init__(prog_id="Word.Application", app_name="Word")
+    
+    def _get_application(self):
+        """获取 Word 应用程序实例（尝试所有可能的 ProgID）"""
+        # 尝试所有可能的 ProgID
+        for prog_id in self.prog_ids:
+            try:
+                # 尝试连接现有的 Word 实例
+                app = win32com.client.GetActiveObject(prog_id)
+                log(f"Successfully connected to Word via {prog_id}")
+                self._ensure_app_ready(app)
+                return app
+            except Exception:
+                try:
+                    # 尝试创建新实例
+                    app = gencache.EnsureDispatch(prog_id)
+                    log(f"Successfully created Word instance via {prog_id}")
+                    self._ensure_app_ready(app)
+                    return app
+                except Exception as e:
+                    log(f"Cannot get Word application via {prog_id}: {e}")
+                    continue
+        
+        raise Exception(f"未找到运行中的 {self.app_name}，请先打开")
+    
+    def _ensure_app_ready(self, app) -> None:
         """确保 Word 应用程序处于就绪状态"""
         try:
             # 确保 Word 可见

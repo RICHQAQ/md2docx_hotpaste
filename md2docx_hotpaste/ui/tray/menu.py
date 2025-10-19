@@ -82,12 +82,12 @@ class TrayMenuManager:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "启动插入excel",
-                self._on_toggle_keep,
+                self._on_toggle_excel,
                 checked=lambda item: config.get("enable_excel", True)
             ),
             pystray.MenuItem(
                 "启动excel解析特殊格式",
-                self._on_toggle_keep,
+                self._on_toggle_excel_format,
                 checked=lambda item: config.get("excel_keep_format", True)
             ),
             pystray.Menu.SEPARATOR,
@@ -189,21 +189,21 @@ class TrayMenuManager:
         icon.menu = self.build_menu()
         self.notification_service.notify("MD2DOCX HotPaste", "仅生成，不插入", ok=True)
         
-    def _on_target_excel(self, icon, item):
-        """设置插入目标为 Excel"""
+    def _on_toggle_excel(self, icon, item):
+        """切换启用 Excel 插入"""
         current = app_state.config.get("enable_excel", True)
         app_state.config["enable_excel"] = not current
         self._save_config()
         icon.menu = self.build_menu()
-        self.notification_service.notify("MD2DOCX HotPaste", f"启动插入目标：Excel {'开启' if not current else '关闭'}", ok=True)
+        self.notification_service.notify("MD2DOCX HotPaste", f"Excel 插入功能：{'开启' if not current else '关闭'}", ok=True)
         
-    def _on_target_excel_format(self, icon, item):
-        """设置Excel粘贴时是否保留格式"""
+    def _on_toggle_excel_format(self, icon, item):
+        """切换 Excel 粘贴时是否保留格式"""
         current = app_state.config.get("excel_keep_format", True)
         app_state.config["excel_keep_format"] = not current
         self._save_config()
         icon.menu = self.build_menu()
-        self.notification_service.notify("MD2DOCX HotPaste", f"启动excel解析特殊格式 {'开启' if not current else '关闭'}", ok=True)
+        self.notification_service.notify("MD2DOCX HotPaste", f"Excel 格式保留：{'开启' if not current else '关闭'}", ok=True)
     
     def _on_toggle_keep(self, icon, item):
         """切换保留文件状态"""

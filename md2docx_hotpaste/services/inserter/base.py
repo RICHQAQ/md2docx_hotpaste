@@ -1,24 +1,25 @@
 """Base classes for document and table inserters."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any, List, Union
 
 from ...infra.com import ensure_com
-from ...core.errors import InsertError
 
 
 class BaseDocumentInserter(ABC):
     """文档插入器基类（用于 Word/WPS 文字）"""
     
-    def __init__(self, prog_id: str, app_name: str):
+    def __init__(self, prog_id: Union[str, List[str]], app_name: str):
         """
         初始化插入器
         
         Args:
-            prog_id: COM ProgID (如 "Word.Application" 或 "kwps.Application")
+            prog_id: COM ProgID 或 ProgID 列表 (如 "Word.Application" 或 ["kwps.Application", "KWPS.Application"])
             app_name: 应用名称 (如 "Word" 或 "WPS 文字")
         """
-        self.prog_id = prog_id
+        # 统一转为列表处理
+        self.prog_ids = [prog_id] if isinstance(prog_id, str) else prog_id
+        self.prog_id = self.prog_ids[0]  # 保持向后兼容
         self.app_name = app_name
     
     @ensure_com
@@ -72,15 +73,17 @@ class BaseDocumentInserter(ABC):
 class BaseTableInserter(ABC):
     """表格插入器基类（用于 Excel/WPS 表格）"""
     
-    def __init__(self, prog_id: str, app_name: str):
+    def __init__(self, prog_id: Union[str, List[str]], app_name: str):
         """
         初始化插入器
         
         Args:
-            prog_id: COM ProgID (如 "Excel.Application" 或 "ket.Application")
+            prog_id: COM ProgID 或 ProgID 列表 (如 "Excel.Application" 或 ["ket.Application"])
             app_name: 应用名称 (如 "Excel" 或 "WPS 表格")
         """
-        self.prog_id = prog_id
+        # 统一转为列表处理
+        self.prog_ids = [prog_id] if isinstance(prog_id, str) else prog_id
+        self.prog_id = self.prog_ids[0]  # 保持向后兼容
         self.app_name = app_name
     
     @abstractmethod

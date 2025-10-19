@@ -204,7 +204,7 @@ class BaseExcelInserter(BaseTableInserter):
     
     def _get_application(self):
         """
-        获取 Excel 应用程序实例
+        获取 Excel 应用程序实例（尝试所有可能的 ProgID）
         
         Returns:
             Excel 应用程序对象
@@ -214,14 +214,18 @@ class BaseExcelInserter(BaseTableInserter):
         """
         import win32com.client
         
-        try:
-            # 尝试连接现有实例
-            excel = win32com.client.GetActiveObject(self.prog_id)
-            log(f"Successfully connected to {self.prog_id}")
-            return excel
-        except Exception as e:
-            log(f"Failed to connect to {self.prog_id}: {e}")
-            raise Exception(f"No {self.app_name} application found")
+        # 尝试所有可能的 ProgID
+        for prog_id in self.prog_ids:
+            try:
+                # 尝试连接现有实例
+                excel = win32com.client.GetActiveObject(prog_id)
+                log(f"Successfully connected to {prog_id}")
+                return excel
+            except Exception as e:
+                log(f"Failed to connect to {prog_id}: {e}")
+                continue
+        
+        raise Exception(f"未找到运行中的 {self.app_name}，请先打开")
     
     # 保持向后兼容的别名
     _get_excel_application = _get_application
