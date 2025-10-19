@@ -109,6 +109,19 @@ pyinstaller --clean -F -w -n MD2DOCX-HotPaste  --icon assets\icons\logo.ico  --a
 
 ---
 
+## 🍵支持与打赏
+
+如果有什么想法和好建议，欢迎issue交流！🤯🤯🤯
+
+希望这个小工具对你有帮助，欢迎请作者👻喝杯咖啡☕～你的支持会让我更有动力持续修复问题、完善功能、适配更多场景并保持长期维护。感谢每一份支持！
+
+| 支付宝 | 微信 |
+| --- | --- |
+| ![支付宝打赏](docs/pay/Alipay.jpg) | ![微信打赏](docs/pay/Weixinpay.png) |
+
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
