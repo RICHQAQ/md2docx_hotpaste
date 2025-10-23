@@ -1,0 +1,1 @@
+"""Document insertion domain."""

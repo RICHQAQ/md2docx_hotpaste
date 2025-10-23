@@ -1,0 +1,1 @@
+"""Hotkey management domain."""

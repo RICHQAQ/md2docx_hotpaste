@@ -9,8 +9,8 @@ except Exception:
 from ..core.state import app_state
 from ..config.loader import ConfigLoader
 from ..config.paths import get_app_icon_path
-from ..infra.logging import log
-from ..services.notify import NotificationService
+from ..utils.logging import log
+from ..domains.notification.manager import NotificationManager
 from .wiring import Container
 
 
@@ -29,12 +29,12 @@ def initialize_application() -> Container:
     return container
 
 
-def show_startup_notification(notification_service: NotificationService) -> None:
+def show_startup_notification(notification_manager: NotificationManager) -> None:
     """显示启动通知"""
     try:
         # 确保图标路径存在（仅用于验证）
         get_app_icon_path()
-        notification_service.notify(
+        notification_manager.notify(
             "MD2DOCX HotPaste",
             "启动成功，已经运行在后台。",
             ok=True
@@ -54,8 +54,8 @@ def main() -> None:
         hotkey_runner.start()
         
         # 显示启动通知
-        notification_service = container.get_notification_service()
-        show_startup_notification(notification_service)
+        notification_manager = container.get_notification_manager()
+        show_startup_notification(notification_manager)
         
         # 启动托盘（阻塞运行）
         tray_runner = container.get_tray_runner()

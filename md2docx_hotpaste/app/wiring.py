@@ -1,11 +1,11 @@
 """Dependency injection and object wiring."""
 
 from ..config.loader import ConfigLoader
-from ..services.notify import NotificationService
-from ..features.paste.controller import PasteController
-from ..ui.tray.menu import TrayMenuManager
-from ..ui.tray.run import TrayRunner
-from ..ui.hotkey.run import HotkeyRunner
+from ..domains.notification.manager import NotificationManager
+from ..app.workflows.paste_workflow import PasteWorkflow
+from ..presentation.tray.menu import TrayMenuManager
+from ..presentation.tray.run import TrayRunner
+from ..presentation.hotkey.run import HotkeyRunner
 
 
 class Container:
@@ -14,26 +14,26 @@ class Container:
     def __init__(self):
         # 基础服务
         self.config_loader = ConfigLoader()
-        self.notification_service = NotificationService()
+        self.notification_manager = NotificationManager()
         
-        # 业务控制器
-        self.paste_controller = PasteController()
+        # 业务工作流
+        self.paste_workflow = PasteWorkflow()
         
         # UI 组件
         self.tray_menu_manager = TrayMenuManager(
             self.config_loader,
-            self.notification_service
+            self.notification_manager
         )
         self.tray_runner = TrayRunner(self.tray_menu_manager)
-        self.hotkey_runner = HotkeyRunner(self.paste_controller.execute)
+        self.hotkey_runner = HotkeyRunner(self.paste_workflow.execute)
         
         # 设置热键重启回调
         self.tray_menu_manager.set_restart_hotkey_callback(
             self.hotkey_runner.restart
         )
     
-    def get_paste_controller(self) -> PasteController:
-        return self.paste_controller
+    def get_paste_workflow(self) -> PasteWorkflow:
+        return self.paste_workflow
     
     def get_hotkey_runner(self) -> HotkeyRunner:
         return self.hotkey_runner
@@ -41,5 +41,5 @@ class Container:
     def get_tray_runner(self) -> TrayRunner:
         return self.tray_runner
     
-    def get_notification_service(self) -> NotificationService:
-        return self.notification_service
+    def get_notification_manager(self) -> NotificationManager:
+        return self.notification_manager
