@@ -233,8 +233,4 @@ class MSExcelInserter(BaseExcelInserter):
         super().__init__(prog_id="Excel.Application", app_name="Excel")
 
 
-class WPSExcelInserter(BaseExcelInserter):
-    """WPS 表格插入器"""
-    
-    def __init__(self):
-        super().__init__(prog_id="ket.Application", app_name="WPS 表格")
+

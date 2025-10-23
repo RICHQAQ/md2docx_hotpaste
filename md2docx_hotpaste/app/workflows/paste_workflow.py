@@ -12,7 +12,8 @@ from ...domains.document.word import WordInserter
 from ...domains.document.wps import WPSInserter
 from ...domains.document.cleanup import FileCleanupManager
 from ...domains.spreadsheet.parser import parse_markdown_table
-from ...domains.spreadsheet.excel import MSExcelInserter, WPSExcelInserter
+from ...domains.spreadsheet.excel import MSExcelInserter
+from ...domains.spreadsheet.wps_excel import WPSExcelInserter
 from ...domains.notification.manager import NotificationManager
 from ...utils.fs import generate_output_path
 from ...utils.logging import log
