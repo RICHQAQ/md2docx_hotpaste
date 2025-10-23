@@ -2,12 +2,14 @@
 
 import traceback
 import io
+import os
+import time
 
 from ...utils.win32.detector import detect_active_app
 from ...utils.clipboard import get_clipboard_text, is_clipboard_empty
 from ...utils.latex import convert_latex_delimiters
+from ...domains.awakener import AppLauncher
 from ...integrations.pandoc import PandocIntegration
-from ...domains.document.selector import TargetSelector
 from ...domains.document.word import WordInserter
 from ...domains.document.wps import WPSInserter
 from ...domains.document.cleanup import FileCleanupManager
@@ -25,7 +27,6 @@ class PasteWorkflow:
     """转换并插入工作流 - 业务流程编排"""
     
     def __init__(self):
-        self.target_selector = TargetSelector()
         self.word_inserter = WordInserter()
         self.wps_inserter = WPSInserter()
         self.ms_excel_inserter = MSExcelInserter()
@@ -58,17 +59,12 @@ class PasteWorkflow:
             if target in ("excel", "wps_excel") and config.get("enable_excel", True):
                 # Excel/WPS表格流程：直接插入表格数据
                 self._handle_excel_flow(md_text, target, config)
-            elif target in ("word", "wps", "none"):
+            elif target in ("word", "wps"):
                 # Word/WPS文字流程：转换为DOCX后插入
                 self._handle_word_flow(md_text, target, config)
             else:
-                # 未知目标
-                log(f"Unknown or unsupported target: {target}")
-                self.notification_manager.notify(
-                    "MD2DOCX HotPaste",
-                    "未检测到支持的应用，请打开 Word/WPS/Excel。",
-                    ok=False
-                )
+                # 未检测到应用，尝试自动打开预生成的文件
+                self._handle_no_app_flow(md_text, config)
             
         except ClipboardError as e:
             log(f"Clipboard error: {e}")
@@ -151,7 +147,7 @@ class PasteWorkflow:
         
         Args:
             md_text: Markdown文本
-            target: 目标应用 (word, wps 或 none)
+            target: 目标应用 (word 或 wps)
             config: 配置字典
         """
         # 1. 处理LaTeX公式
@@ -172,17 +168,10 @@ class PasteWorkflow:
         )
         log(f"Converted Markdown to DOCX: {output_path}")
         
-        # 4. 根据配置确定最终插入目标
-        configured_target = config.get("insert_target", "auto")
-        if configured_target != "auto":
-            # 用户指定了目标，使用TargetSelector解析
-            target = self.target_selector.resolve_target(configured_target)
-            log(f"User configured target: {configured_target}, resolved to: {target}")
-        
-        # 5. 执行插入
+        # 4. 执行插入
         inserted = self._perform_word_insertion(output_path, target)
         
-        # 6. 清理文件
+        # 5. 清理文件
         self.cleanup_manager.cleanup_if_needed(
             file_path=output_path,
             keep_file=config.get("keep_file", False),
@@ -190,7 +179,7 @@ class PasteWorkflow:
             target=target
         )
         
-        # 7. 显示结果通知
+        # 6. 显示结果通知
         self._show_word_result(target, inserted)
     
     def _ensure_pandoc_integration(self) -> None:
@@ -205,15 +194,12 @@ class PasteWorkflow:
         
         Args:
             docx_path: DOCX文件路径
-            target: 目标应用
+            target: 目标应用 (word 或 wps)
             
         Returns:
             True 如果插入成功
         """
-        if target == "none":
-            log("Target is 'none', skip insertion")
-            return False
-        elif target == "word":
+        if target == "word":
             try:
                 return self.word_inserter.insert(docx_path)
             except InsertError as e:
@@ -231,13 +217,7 @@ class PasteWorkflow:
     
     def _show_word_result(self, target: str, inserted: bool) -> None:
         """显示Word/WPS流程的结果通知"""
-        if target == "none":
-            self.notification_manager.notify(
-                "MD2DOCX HotPaste",
-                "已生成 DOCX（仅生成，不插入）。",
-                ok=True
-            )
-        elif inserted:
+        if inserted:
             app_name = "Word" if target == "word" else "WPS 文字"
             self.notification_manager.notify(
                 "MD2DOCX HotPaste",
@@ -249,5 +229,137 @@ class PasteWorkflow:
             self.notification_manager.notify(
                 "MD2DOCX HotPaste",
                 f"未能插入到 {app_name}，请确认软件已打开且有光标。",
+                ok=False
+            )
+    
+    def _handle_no_app_flow(self, md_text: str, config: dict) -> None:
+        """
+        无应用检测时的处理流程：生成文件并用默认应用打开
+        
+        Args:
+            md_text: Markdown文本
+            config: 配置字典
+        """
+        # 检查是否启用了自动打开功能
+        if not config.get("auto_open_on_no_app", True):
+            log("auto_open_on_no_app is disabled, skipping")
+            self.notification_manager.notify(
+                "MD2DOCX HotPaste",
+                "未检测到支持的应用。请打开 Word/WPS/Excel 或启用自动打开。",
+                ok=False
+            )
+            return
+        
+        # 检测内容类型
+        is_table = parse_markdown_table(md_text) is not None
+        
+        if is_table and config.get("enable_excel", True):
+            # 是表格，生成 XLSX 并打开
+            self._generate_and_open_spreadsheet(md_text, config)
+        else:
+            # 是文档，生成 DOCX 并打开
+            self._generate_and_open_document(md_text, config)
+    
+    def _generate_and_open_document(self, md_text: str, config: dict) -> None:
+        """
+        生成 DOCX 文件并用默认应用打开
+        
+        Args:
+            md_text: Markdown文本
+            config: 配置字典
+        """
+        try:
+            # 1. 处理LaTeX公式
+            md_text = convert_latex_delimiters(md_text)
+            
+            # 2. 生成输出路径
+            output_path = generate_output_path(
+                keep_file=True,  # 生成文件并打开时，默认保留文件
+                save_dir=config.get("save_dir", "")
+            )
+            
+            # 3. 转换为DOCX
+            self._ensure_pandoc_integration()
+            self.pandoc_integration.convert_to_docx(
+                md_text=md_text,
+                output_path=output_path,
+                reference_docx=config.get("reference_docx")
+            )
+            log(f"Generated DOCX: {output_path}")
+            
+            # 4. 用默认应用打开
+            if AppLauncher.awaken_and_open_document(output_path):
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    f"已生成文档并用默认应用打开。\n路径: {output_path}",
+                    ok=True
+                )
+            else:
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    f"文档已生成，但打开失败。\n路径: {output_path}",
+                    ok=False
+                )
+        except PandocError as e:
+            log(f"Pandoc conversion failed: {e}")
+            self.notification_manager.notify(
+                "MD2DOCX HotPaste",
+                "Markdown 转换失败，请检查格式。",
+                ok=False
+            )
+        except Exception as e:
+            log(f"Failed to generate document: {e}")
+            self.notification_manager.notify(
+                "MD2DOCX HotPaste",
+                "生成文档失败。",
+                ok=False
+            )
+    
+    def _generate_and_open_spreadsheet(self, md_text: str, config: dict) -> None:
+        """
+        生成 XLSX 文件并用默认应用打开
+        
+        Args:
+            md_text: Markdown文本
+            config: 配置字典
+        """
+        try:
+            # 1. 解析表格
+            table_data = parse_markdown_table(md_text)
+            if table_data is None:
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    "未检测到有效的 Markdown 表格。",
+                    ok=False
+                )
+                return
+            
+            # 2. 生成输出路径（XLSX）
+            save_dir = config.get("save_dir", "")
+            save_dir = os.path.expandvars(save_dir)
+            os.makedirs(save_dir, exist_ok=True)
+            
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            xlsx_path = os.path.join(save_dir, f"table_{timestamp}.xlsx")
+            
+            # 3. 生成并打开 XLSX
+            keep_format = config.get("excel_keep_format", True)
+            if AppLauncher.generate_and_open_spreadsheet(table_data, xlsx_path, keep_format):
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    f"已生成表格（{len(table_data)} 行）并用默认应用打开。\n路径: {xlsx_path}",
+                    ok=True
+                )
+            else:
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    f"表格已生成，但打开失败。\n路径: {xlsx_path}",
+                    ok=False
+                )
+        except Exception as e:
+            log(f"Failed to generate spreadsheet: {e}")
+            self.notification_manager.notify(
+                "MD2DOCX HotPaste",
+                "生成表格失败。",
                 ok=False
             )

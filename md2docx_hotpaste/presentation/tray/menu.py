@@ -46,34 +46,14 @@ class TrayMenuManager:
                 self._on_toggle_notify,
                 checked=lambda item: config.get("notify", True)
             ),
+            pystray.MenuItem(
+                "无应用时自动打开",
+                self._on_toggle_auto_open,
+                checked=lambda item: config.get("auto_open_on_no_app", True)
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("设置热键", self._on_set_hotkey),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                "插入文档目标",
-                pystray.Menu(
-                    pystray.MenuItem(
-                        "Auto",
-                        self._on_target_auto,
-                        checked=lambda i: config.get("insert_target") == "auto"
-                    ),
-                    pystray.MenuItem(
-                        "Word",
-                        self._on_target_word,
-                        checked=lambda i: config.get("insert_target") == "word"
-                    ),
-                    pystray.MenuItem(
-                        "WPS",
-                        self._on_target_wps,
-                        checked=lambda i: config.get("insert_target") == "wps"
-                    ),
-                    pystray.MenuItem(
-                        "None (仅生成)",
-                        self._on_target_none,
-                        checked=lambda i: config.get("insert_target") == "none"
-                    ),
-                )
-            ),
             pystray.MenuItem(
                 "保留生成文件",
                 self._on_toggle_keep,
@@ -161,33 +141,14 @@ class TrayMenuManager:
         else:
             log("Notifications disabled via tray toggle")
     
-    def _on_target_auto(self, icon, item):
-        """设置插入目标为自动"""
-        app_state.config["insert_target"] = "auto"
+    def _on_toggle_auto_open(self, icon, item):
+        """切换无应用时自动打开状态"""
+        current = app_state.config.get("auto_open_on_no_app", True)
+        app_state.config["auto_open_on_no_app"] = not current
         self._save_config()
         icon.menu = self.build_menu()
-        self.notification_manager.notify("MD2DOCX HotPaste", "插入目标：Auto", ok=True)
-    
-    def _on_target_word(self, icon, item):
-        """设置插入目标为 Word"""
-        app_state.config["insert_target"] = "word"
-        self._save_config()
-        icon.menu = self.build_menu()
-        self.notification_manager.notify("MD2DOCX HotPaste", "插入目标：Word", ok=True)
-    
-    def _on_target_wps(self, icon, item):
-        """设置插入目标为 WPS"""
-        app_state.config["insert_target"] = "wps"
-        self._save_config()
-        icon.menu = self.build_menu()
-        self.notification_manager.notify("MD2DOCX HotPaste", "插入目标：WPS", ok=True)
-    
-    def _on_target_none(self, icon, item):
-        """设置插入目标为无（仅生成）"""
-        app_state.config["insert_target"] = "none"
-        self._save_config()
-        icon.menu = self.build_menu()
-        self.notification_manager.notify("MD2DOCX HotPaste", "仅生成，不插入", ok=True)
+        status = "已开启无应用时自动打开" if app_state.config["auto_open_on_no_app"] else "已关闭无应用时自动打开"
+        self.notification_manager.notify("MD2DOCX HotPaste", status, ok=True)
         
     def _on_toggle_excel(self, icon, item):
         """切换启用 Excel 插入"""
