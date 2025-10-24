@@ -1,12 +1,17 @@
 #define MyAppName "MD2DOCX HotPaste"
-#define MyAppVersion "0.1.3.6"
+#define MyAppVersion "0.1.3.7"
 #define MyAppPublisher "RichQAQ"
 #define MyAppExeName "MD2DOCX-HotPaste.exe"
+; AppUserModelID 用于 Win11 通知归属与图标
+#define MyAUMID        "RichQAQ.MD2DOCX_HotPaste"
 
-; 如果你用 onefile，SourceDir 就指向 dist
-#define BuildDir "dist"
-; 如果你用 onedir，且产物目录叫 MD2DOCX-HotPaste，就改成 dist\MD2DOCX-HotPaste
-; #define BuildDir "dist\\MD2DOCX-HotPaste"
+; 如果是 onefile，发行物在 dist
+#define BuildDir       "dist"
+; 如果是 onedir，改为发行目录：例如
+; #define BuildDir     "dist\\MD2DOCX-HotPaste"
+
+; ICO 源文件
+#define MyIconSrc      "assets\\icons\\logo.ico"
 
 [Setup]
 AppId={{87d83b72-8644-45ed-88d4-aa6c1ce7ce6b}}
@@ -40,30 +45,51 @@ chinesesimplified.RunAfterInstall=安装完成后运行 {#MyAppName}
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalOptions}"
-Name: "autorun"; Description: "{cm:AutoStartup}"; GroupDescription: "{cm:AdditionalOptions}"
+Name: "autorun";     Description: "{cm:AutoStartup}";      GroupDescription: "{cm:AdditionalOptions}"
 
 [Files]
+; 主可执行文件
 Source: "{#BuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Pandoc 打包目录
 Source: "third_party\pandoc\*"; DestDir: "{app}\pandoc"; Flags: ignoreversion recursesubdirs createallsubdirs
-; 如果是 onedir，再把整个目录下的其他文件全部带上：
+; 安装时把图标拷到 {app}\icon.ico
+Source: "{#MyIconSrc}"; DestDir: "{app}"; DestName: "icon.ico"; Flags: ignoreversion
+
+; 如果你是 onedir，并且有更多运行时文件需要带上，在下方取消注释：
 ; Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; 为快捷方式写入 AppUserModelID，并指定图标，确保通知归属/图标正确
+Name: "{group}\{#MyAppName}";       Filename: "{app}\{#MyAppExeName}"; \
+    AppUserModelID: "{#MyAUMID}";   IconFilename: "{app}\icon.ico"
+
+Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; \
+    Tasks: desktopicon; AppUserModelID: "{#MyAUMID}"; IconFilename: "{app}\icon.ico"
 
 [Run]
+; 安装完成后运行应用
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:RunAfterInstall}"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; 开机自启（当前用户）
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-  ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; \
-  Tasks: autorun; Flags: uninsdeletevalue
+    ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; \
+    Tasks: autorun; Flags: uninsdeletevalue
+
+; 注册 AUMID -> 显示名与图标，供 Win11 通知头部应用区使用
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\{#MyAUMID}"; \
+    ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppName}"
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\{#MyAUMID}"; \
+    ValueType: string; ValueName: "IconUri";    ValueData: "{app}\icon.ico"
+; 另外专门加一条“键本身”的项，卸载时直接删整个键（最干净）
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\{#MyAUMID}"; \
+    Flags: uninsdeletekey
 
 [UninstallDelete]
+; 清理应用数据目录（如有）
 Type: filesandordirs; Name: "{userappdata}\{#MyAppName}"
 
 [UninstallRun]
+; 卸载前尝试结束进程
 Filename: "taskkill"; Parameters: "/f /im {#MyAppExeName}"; Flags: runhidden
 

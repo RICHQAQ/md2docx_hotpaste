@@ -5,7 +5,7 @@ import sys
 
 try:
     import ctypes
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MD2DOCX.HotPaste")
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RichQAQ.MD2DOCX_HotPaste")
 except Exception:
     pass
 
