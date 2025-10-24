@@ -19,9 +19,10 @@
 </p>
 
 * 全局热键（默认 `Ctrl+B`）一键粘贴 Markdown → DOCX。
-* **✨ 智能识别 Markdown 表格**，自动粘贴到 Excel（需 Excel 已打开）。
+* **✨ 智能识别 Markdown 表格**，自动粘贴到 Excel。
 * 自动识别当前前台应用：Word 或 WPS。
-* 托盘菜单，可切换目标、保留文件、查看日志/配置等。
+* 智能打开所需应用为Word/Excel。
+* 托盘菜单，可保留文件、查看日志/配置等。
 * 支持系统通知提醒。
 * 无黑框，无阻塞，稳定运行。
 
@@ -58,10 +59,10 @@
   "reference_docx": null,
   "save_dir": "%USERPROFILE%\\Documents\\md2docx_paste",
   "keep_file": false,
-  "insert_target": "auto",
   "notify": true,
   "enable_excel": true,
-  "excel_keep_format": true
+  "excel_keep_format": true,
+  "auto_open_on_no_app": true
 }
 ```
 
@@ -69,12 +70,13 @@
 
 * `hotkey`：全局热键，语法如 `<ctrl>+<alt>+v`。
 * `pandoc_path`：Pandoc 可执行文件路径。
+* `reference_docx`：Pandoc 参考模板（可选）。
 * `save_dir`：保留文件时的保存目录。
 * `keep_file`：是否保留生成的 DOCX 文件。
-* `insert_target`：插入目标，可选 `auto` / `word` / `wps` / `none`。
 * `notify`：是否显示系统通知。
 * **`enable_excel`**：**✨ 新功能** - 是否启用智能识别 Markdown 表格并粘贴到 Excel（默认 true）。
 * **`excel_keep_format`**：**✨ 新功能** - Excel 粘贴时是否保留 Markdown 格式（粗体、斜体、代码等），默认 true。
+* **`auto_open_on_no_app`**：**✨ 新功能** 当未检测到目标应用（如 Word/Excel）时，是否自动创建文件并用系统默认应用打开（默认 true）。
 
 修改后可在托盘菜单选择 **“重载配置/热键”** 立即生效。
 
@@ -82,20 +84,26 @@
 
 ## 托盘菜单
 
-* **启用热键**：开/关全局热键。
-* **设置热键**：通过图形界面方便地录制和设置新的全局热键。
-* **插入目标**：切换为 Auto/Word/WPS/None。
-* **保留生成文件**：勾选后，文件保存在 `save_dir`。
-* **打开保存目录**、**查看日志**、**编辑配置**、**重载配置/热键**、**退出**。
+* 快捷显示：当前全局热键（只读）。
+* 启用热键：开/关全局热键。
+* 弹窗通知：开/关系统通知。
+* 无应用时自动打开：当未检测到 Word/Excel 时是否自动创建并用默认应用打开。
+* 设置热键：通过图形界面录制并保存新的全局热键（即时生效）。
+* 保留生成文件：勾选后生成的 DOCX 会保存在 `save_dir`。
+* 启动插入 Excel：启用/禁用 Markdown 表格智能识别并粘贴至 Excel。
+* 启动 Excel 解析特殊格式：粘贴到 Excel 时尽量保留粗体、斜体、代码等格式。
+* 打开保存目录、查看日志、编辑配置、重载配置/热键。
+* 版本：显示当前版本；可检查更新；若检测到新版本，会显示条目并可点击打开下载页面。
+* 退出：退出程序。
 
 ---
 
 ## 📦从源码运行 / 打包
 
-建议 Python 3.11 (64位，和 Office/WPS 位数一致)。
+建议 Python 3.12 (64位)。
 
 ```bash
-pip install psutil pyperclip pynput pystray pillow plyer pywin32
+pip install -r requirements.txt
 python main.py
 ```
 
