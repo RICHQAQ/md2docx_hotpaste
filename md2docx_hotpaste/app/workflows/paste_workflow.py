@@ -3,7 +3,6 @@
 import traceback
 import io
 import os
-import time
 
 from ...utils.win32.detector import detect_active_app
 from ...utils.clipboard import get_clipboard_text, is_clipboard_empty
@@ -275,7 +274,8 @@ class PasteWorkflow:
             # 2. 生成输出路径
             output_path = generate_output_path(
                 keep_file=True,  # 生成文件并打开时，默认保留文件
-                save_dir=config.get("save_dir", "")
+                save_dir=config.get("save_dir", ""),
+                md_text=md_text
             )
             
             # 3. 转换为DOCX
@@ -339,21 +339,24 @@ class PasteWorkflow:
             save_dir = os.path.expandvars(save_dir)
             os.makedirs(save_dir, exist_ok=True)
             
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            xlsx_path = os.path.join(save_dir, f"table_{timestamp}.xlsx")
+            output_path = generate_output_path(
+                keep_file=True,
+                save_dir=save_dir,
+                table_data=table_data
+            )
             
             # 3. 生成并打开 XLSX
             keep_format = config.get("excel_keep_format", True)
-            if AppLauncher.generate_and_open_spreadsheet(table_data, xlsx_path, keep_format):
+            if AppLauncher.generate_and_open_spreadsheet(table_data, output_path, keep_format):
                 self.notification_manager.notify(
                     "MD2DOCX HotPaste",
-                    f"已生成表格（{len(table_data)} 行）并用默认应用打开。\n路径: {xlsx_path}",
+                    f"已生成表格（{len(table_data)} 行）并用默认应用打开。\n路径: {output_path}",
                     ok=True
                 )
             else:
                 self.notification_manager.notify(
                     "MD2DOCX HotPaste",
-                    f"表格已生成，但打开失败。\n路径: {xlsx_path}",
+                    f"表格已生成，但打开失败。\n路径: {output_path}",
                     ok=False
                 )
         except Exception as e:
