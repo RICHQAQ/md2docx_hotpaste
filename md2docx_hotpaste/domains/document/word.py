@@ -93,6 +93,15 @@ class BaseWordInserter(BaseDocumentInserter):
         # 默认实现：无需额外操作
         pass
 
+    def _refresh_app(self) -> object:
+        """
+        刷新应用程序状态（如果需要）
+        
+        Args:
+            app: 应用程序对象
+        """
+        return self._get_application()
+
 
 class WordInserter(BaseWordInserter):
     """Microsoft Word 文档插入器"""

@@ -225,7 +225,16 @@ class BaseExcelInserter(BaseTableInserter):
         cell_format = CellFormat(text)
         return cell_format.parse()
 
-
+    def _refalsh_app(self) -> object:
+        """
+        刷新应用程序状态（如果需要）
+        
+        Args:
+            app: 应用程序对象
+        """
+        return self._get_application()
+    
+    
 class MSExcelInserter(BaseExcelInserter):
     """Microsoft Excel 插入器"""
     
