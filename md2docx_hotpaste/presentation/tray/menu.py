@@ -261,7 +261,13 @@ class TrayMenuManager:
                 result = checker.check_update()
                 
                 if result is None:
+                    # 网络错误或检查失败
                     log("Version check failed - network error")
+                    self.notification_manager.notify(
+                        "MD2DOCX HotPaste - 检查更新失败",
+                        "网络连接失败，请稍后再试",
+                        ok=False
+                    )
                 elif result.get("has_update"):
                     latest_version = result.get("latest_version")
                     release_url = result.get("release_url")
@@ -286,10 +292,20 @@ class TrayMenuManager:
                     log(f"New version available: {latest_version}")
                     log(f"Download URL: {release_url}")
                 else:
-                    # 无需更新，只记录日志
+                    # 无需更新，通知用户已是最新版本
                     current_version = result.get("current_version")
                     log(f"Already on latest version: {current_version}")
+                    self.notification_manager.notify(
+                        "MD2DOCX HotPaste - 已是最新版本",
+                        f"当前版本 {current_version} 已是最新版本",
+                        ok=True
+                    )
             except Exception as e:
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste - 更新检查失败",
+                    f"检查更新时出错：{str(e) if len(str(e)) <= 15 else str(e)[:12] + '...'}",
+                    ok=False
+                )
                 log(f"Error checking update: {e}")
         
         # 启动后台线程

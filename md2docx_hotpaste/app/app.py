@@ -63,8 +63,7 @@ def check_update_in_background(notification_manager: NotificationManager, tray_m
                 
                 # 使用菜单管理器的方法更新版本信息并重新绘制菜单
                 if tray_menu_manager and app_state.icon:
-                    # tray_menu_manager.update_version_info(app_state.icon, latest_version, release_url)
-                    pass
+                    tray_menu_manager.update_version_info(app_state.icon, latest_version, release_url)
                 
                 log(f"New version available: {latest_version}")
                 log(f"Download URL: {release_url}")
