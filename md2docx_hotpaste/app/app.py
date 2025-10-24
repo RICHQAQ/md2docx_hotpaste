@@ -1,6 +1,7 @@
 """Application entry point and initialization."""
 
 import threading
+import sys
 
 try:
     import ctypes
@@ -10,6 +11,7 @@ except Exception:
 
 from .. import __version__
 from ..core.state import app_state
+from ..core.singleton import check_single_instance
 from ..config.loader import ConfigLoader
 from ..config.paths import get_app_icon_path
 from ..utils.logging import log
@@ -77,6 +79,11 @@ def check_update_in_background(notification_manager: NotificationManager, tray_m
 def main() -> None:
     """应用程序主入口点"""
     try:
+        # 检查单实例运行
+        if not check_single_instance():
+            log("Application is already running")
+            sys.exit(1)
+        
         # 初始化应用程序
         container = initialize_application()
         
@@ -104,6 +111,9 @@ def main() -> None:
         log(f"Fatal error: {e}")
         raise
     finally:
+        # 释放锁
+        if app_state.instance_checker:
+            app_state.instance_checker.release_lock()
         log("Application shutting down")
 
 

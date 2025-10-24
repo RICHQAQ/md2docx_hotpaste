@@ -14,11 +14,14 @@ class AppState:
     last_ok: bool = True
     hotkey_str: str = "<ctrl>+b"
     config: Dict[str, Any] = field(default_factory=dict)
-    
+
     # UI组件引用
     listener: Optional[Any] = None  # pynput.keyboard.GlobalHotKeys
     icon: Optional[Any] = None      # pystray.Icon
-    
+
+    # 单实例检查器
+    instance_checker: Optional[Any] = None  # SingleInstanceChecker
+
     # 线程锁
     _lock: threading.Lock = field(default_factory=threading.Lock)
     
