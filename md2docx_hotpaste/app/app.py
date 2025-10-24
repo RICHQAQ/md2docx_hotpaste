@@ -1,15 +1,19 @@
 """Application entry point and initialization."""
 
+import threading
+
 try:
     import ctypes
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MD2DOCX.HotPaste")
 except Exception:
     pass
 
+from .. import __version__
 from ..core.state import app_state
 from ..config.loader import ConfigLoader
 from ..config.paths import get_app_icon_path
 from ..utils.logging import log
+from ..utils.version_checker import VersionChecker
 from ..domains.notification.manager import NotificationManager
 from .wiring import Container
 
@@ -43,6 +47,33 @@ def show_startup_notification(notification_manager: NotificationManager) -> None
         log(f"Failed to show startup notification: {e}")
 
 
+def check_update_in_background(notification_manager: NotificationManager, tray_menu_manager=None) -> None:
+    """在后台检查版本更新"""
+    def _check():
+        try:
+
+            checker = VersionChecker(__version__)
+            result = checker.check_update()
+            
+            if result and result.get("has_update"):
+                latest_version = result.get("latest_version")
+                release_url = result.get("release_url")
+                
+                # 使用菜单管理器的方法更新版本信息并重新绘制菜单
+                if tray_menu_manager and app_state.icon:
+                    # tray_menu_manager.update_version_info(app_state.icon, latest_version, release_url)
+                    pass
+                
+                log(f"New version available: {latest_version}")
+                log(f"Download URL: {release_url}")
+        except Exception as e:
+            log(f"Background version check failed: {e}")
+    
+    # 启动后台线程，不阻塞主程序
+    thread = threading.Thread(target=_check, daemon=True)
+    thread.start()
+
+
 def main() -> None:
     """应用程序主入口点"""
     try:
@@ -53,9 +84,15 @@ def main() -> None:
         hotkey_runner = container.get_hotkey_runner()
         hotkey_runner.start()
         
-        # 显示启动通知
+        # 获取通知管理器和菜单管理器
         notification_manager = container.get_notification_manager()
+        tray_menu_manager = container.tray_menu_manager
+        
+        # 显示启动通知
         show_startup_notification(notification_manager)
+        
+        # 启动后台版本检查（无需显示通知）
+        check_update_in_background(notification_manager, tray_menu_manager)
         
         # 启动托盘（阻塞运行）
         tray_runner = container.get_tray_runner()

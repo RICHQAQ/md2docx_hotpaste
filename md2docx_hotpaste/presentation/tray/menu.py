@@ -2,13 +2,17 @@
 
 import os
 import pystray
+import threading
+import webbrowser
 
+from ... import __version__
 from ...core.state import app_state
 from ...config.loader import ConfigLoader
 from ...config.paths import get_log_path, get_config_path
 from ...domains.notification.manager import NotificationManager
 from ...utils.fs import ensure_dir
 from ...utils.logging import log
+from ...utils.version_checker import VersionChecker
 from .icon import create_status_icon
 from ..hotkey.dialog import HotkeyDialog
 
@@ -20,6 +24,9 @@ class TrayMenuManager:
         self.config_loader = config_loader
         self.notification_manager = notification_manager
         self.restart_hotkey_callback = None  # 将由外部设置
+        self.version_checker = None  # 将由外部设置或按需创建
+        self.latest_version = None  # 存储最新版本号
+        self.latest_release_url = None  # 存储最新版本的下载链接
     
     def set_restart_hotkey_callback(self, callback):
         """设置重启热键的回调函数"""
@@ -27,7 +34,34 @@ class TrayMenuManager:
     
     def build_menu(self) -> pystray.Menu:
         """构建托盘菜单"""
+        
         config = app_state.config
+        
+        # 构建版本菜单项
+        version_menu_items = [
+            pystray.MenuItem(
+                f"当前版本: {__version__}",
+                lambda icon, item: None,
+                enabled=False
+            ),
+        ]
+        
+        # 如果有新版本，显示新版本号
+        if self.latest_version:
+            version_menu_items.append(
+                pystray.MenuItem(
+                    f"✨ 新版本: {self.latest_version}",
+                    self._on_open_release_page,
+                    enabled=True
+                )
+            )
+        else:
+            version_menu_items.append(
+                pystray.MenuItem(
+                    "检查更新",
+                    self._on_check_update
+                )
+            )
         
         return pystray.Menu(
             # 快捷显示
@@ -36,6 +70,7 @@ class TrayMenuManager:
                 lambda icon, item: None,
                 enabled=False
             ),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "启用热键",
                 self._on_toggle_enabled,
@@ -73,8 +108,11 @@ class TrayMenuManager:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开保存目录", self._on_open_save_dir),
             pystray.MenuItem("查看日志", self._on_open_log),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("编辑配置", self._on_edit_config),
             pystray.MenuItem("重载配置/热键", self._on_reload),
+            pystray.Menu.SEPARATOR,
+            *version_menu_items,
             pystray.MenuItem("退出", self._on_quit)
         )
     
@@ -210,6 +248,73 @@ class TrayMenuManager:
         except Exception as e:
             log(f"Failed to reload config: {e}")
             self.notification_manager.notify("MD2DOCX HotPaste", "配置重载失败", ok=False)
+    
+    def _on_check_update(self, icon, item):
+        """检查更新"""
+        # 在后台线程中检查更新，避免阻塞 UI
+        def check_in_background():
+            try:
+                # 导入版本号
+                from ... import __version__
+                
+                checker = VersionChecker(__version__)
+                result = checker.check_update()
+                
+                if result is None:
+                    log("Version check failed - network error")
+                elif result.get("has_update"):
+                    latest_version = result.get("latest_version")
+                    release_url = result.get("release_url")
+                    
+                    # 使用 update_version_info 方法更新版本信息并重新绘制菜单
+                    self.update_version_info(icon, latest_version, release_url)
+                    
+                    # 通知用户有新版本，并自动打开下载页面
+                    message = f"发现新版本 {latest_version}，正在为您打开下载页面..."
+                    self.notification_manager.notify(
+                        "MD2DOCX HotPaste - 有新版本",
+                        message,
+                        ok=True
+                    )
+                    
+                    # 自动打开下载页面
+                    try:
+                        webbrowser.open(release_url)
+                    except Exception as e:
+                        log(f"Failed to open browser: {e}")
+                    
+                    log(f"New version available: {latest_version}")
+                    log(f"Download URL: {release_url}")
+                else:
+                    # 无需更新，只记录日志
+                    current_version = result.get("current_version")
+                    log(f"Already on latest version: {current_version}")
+            except Exception as e:
+                log(f"Error checking update: {e}")
+        
+        # 启动后台线程
+        thread = threading.Thread(target=check_in_background, daemon=True)
+        thread.start()
+    
+    def _on_open_release_page(self, icon, item):
+        """打开发布页面"""
+        if self.latest_release_url:
+            try:
+                webbrowser.open(self.latest_release_url)
+                log(f"Opening release page: {self.latest_release_url}")
+            except Exception as e:
+                log(f"Failed to open browser: {e}")
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    "无法打开浏览器，请手动访问 GitHub Releases 页面",
+                    ok=False
+                )
+
+    def update_version_info(self, icon, latest_version: str, release_url: str):
+        """更新最新版本信息"""
+        self.latest_version = latest_version
+        self.latest_release_url = release_url
+        icon.menu = self.build_menu()
     
     def _on_quit(self, icon, item):
         """退出应用程序"""
