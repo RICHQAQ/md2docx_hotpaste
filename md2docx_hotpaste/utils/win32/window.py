@@ -59,7 +59,7 @@ def get_foreground_window_title() -> str:
         return ""
 
 
-def cleanup_background_wps_processes() -> int:
+def cleanup_background_wps_processes(ep:int = 0) -> int:
     """
     清理后台的 WPS 进程，保留前台的 WPS 进程
     
@@ -108,28 +108,21 @@ def cleanup_background_wps_processes() -> int:
         for proc in all_wps_processes:
             try:
                 pid = proc.pid
-                proc_name = proc.info['name'].lower()
-                
-                # wpscloudsvr 始终保护
-                if proc_name == 'wpscloudsvr.exe':
-                    protected_pids.add(pid)
-                    log(f"Protected: service process {pid} (wpscloudsvr)")
-                    continue
-                
+
                 # 检查文档/表格进程：如果有 /Automation 参数，说明是 COM 自动化模式，不保护
                 cmdline = proc.info.get('cmdline', [])
                 cmdline_str = ' '.join(cmdline) if cmdline else ''
                 has_automation = '/automation' in cmdline_str.lower()
-                
-                # 没有 /Automation 参数的才保护（用户正常打开的应用）
-                if not has_automation:
+
+                # 没有 /Automation 参数并且有窗口的才保护（用户正常打开的应用）
+                if not has_automation and _has_main_user_window(pid):
                     protected_pids.add(pid)
                     log(f"Protected: user application {pid} (no /Automation)")
                 else:
                     log(f"Skipped: automation process {pid} (has /Automation)")
             except:
                 pass
-        
+
         # 2. 保护所有主进程的子进程树
         def add_children(parent_pid):
             for proc in all_wps_processes:
@@ -140,12 +133,14 @@ def cleanup_background_wps_processes() -> int:
                         add_children(proc.pid)
                 except:
                     pass
-        
+
         for pid in list(protected_pids):
             add_children(pid)
-        
+
         # 3. 清理不在保护列表中的目标进程（只清理文档/表格进程）
         for proc in target_processes:
+            if proc.info['name'].lower() == 'wpscloudsvr.exe':
+                continue  # 永远不清理服务进程
             try:
                 pid = proc.pid
                 proc_name = proc.info['name'].lower()
@@ -167,6 +162,8 @@ def cleanup_background_wps_processes() -> int:
                 pass
         
         if cleaned_count > 0:
+            if ep < 3:  # 限制递归深度，避免无限循环
+                cleanup_background_wps_processes(ep+1)  # 递归清理，直到没有可清理的进程
             log(f"Cleaned up {cleaned_count} background process(es)")
         
         return cleaned_count
