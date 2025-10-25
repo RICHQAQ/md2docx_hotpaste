@@ -1,5 +1,5 @@
 #define MyAppName "MD2DOCX HotPaste"
-#define MyAppVersion "0.1.3.8"
+#define MyAppVersion "0.1.4.0"
 #define MyAppPublisher "RichQAQ"
 #define MyAppExeName "MD2DOCX-HotPaste.exe"
 ; AppUserModelID 用于 Win11 通知归属与图标

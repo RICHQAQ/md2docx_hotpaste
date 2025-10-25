@@ -97,7 +97,7 @@ class BaseWordInserter(BaseDocumentInserter):
         """
         刷新应用程序状态（如果需要）
         
-        Args:
+        Returns:
             app: 应用程序对象
         """
         return self._get_application()

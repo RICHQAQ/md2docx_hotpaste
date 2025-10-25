@@ -38,30 +38,80 @@ class BaseExcelInserter(BaseTableInserter):
                 raise InsertError(f"未找到运行中的 {self.app_name}，请先打开。错误: {e}")
             
             try:
-                # 获取当前活动的工作表
-                sheet = excel.ActiveSheet
-                
-                # 获取当前选中的单元格（起始位置）
-                start_cell = excel.ActiveCell
-                
-                # 检查是否有活动单元格
-                if start_cell is None:
-                    raise InsertError(f"未选中任何单元格，请在 {self.app_name} 中点击要插入表格的起始位置")
-                
-                start_row = start_cell.Row
-                start_col = start_cell.Column
-                
-                # 逐行逐列填充数据
-                for i, row in enumerate(table_data):
-                    for j, cell_value in enumerate(row):
-                        cell = sheet.Cells(start_row + i, start_col + j)
-                        
-                        if keep_format:
-                            # 解析格式并应用
-                            cell_format = CellFormat(cell_value)
-                            clean_text = cell_format.parse()
-                            
-                            # 应用格式
+                # 保存原始设置
+                original_screen_updating = excel.ScreenUpdating
+                original_calculation = excel.Calculation
+                original_events = excel.EnableEvents
+
+                # 优化性能禁用屏幕更新、自动计算和事件
+                excel.ScreenUpdating = False
+                excel.Calculation = -4135  # xlCalculationManual
+                excel.EnableEvents = False
+
+                try:
+                    # 获取当前活动的工作表
+                    sheet = excel.ActiveSheet
+
+                    # 获取当前选中的单元格（起始位置）
+                    start_cell = excel.ActiveCell
+
+                    # 检查是否有活动单元格
+                    if start_cell is None:
+                        raise InsertError(f"未选中任何单元格，请在 {self.app_name} 中点击要插入表格的起始位置")
+
+                    start_row = start_cell.Row
+                    start_col = start_cell.Column
+
+                    # 预处理数据：解析格式并准备批量数据
+                    rows_count = len(table_data)
+                    cols_count = max(len(row) for row in table_data) if table_data else 0
+
+                    # 准备纯文本数据用于批量插入
+                    clean_data = []
+                    format_info = []  # 存储格式信息 [(row, col, cell_format, clean_text), ...]
+
+                    for i, row in enumerate(table_data):
+                        clean_row = []
+                        for j, cell_value in enumerate(row):
+                            if keep_format:
+                                cell_format = CellFormat(cell_value)
+                                clean_text = cell_format.parse()
+                                clean_row.append(clean_text)
+
+                                # 只有当单元格有格式时才记录
+                                if (cell_format.has_newline or
+                                    cell_format.is_code_block or
+                                    len(cell_format.segments) > 1 or
+                                    (len(cell_format.segments) == 1 and any([
+                                        cell_format.segments[0].bold,
+                                        cell_format.segments[0].italic,
+                                        cell_format.segments[0].strikethrough,
+                                        cell_format.segments[0].is_code,
+                                        cell_format.segments[0].hyperlink_url
+                                    ]))):
+                                    format_info.append((i, j, cell_format, clean_text))
+                            else:
+                                clean_row.append(self._clean_markdown_formatting(cell_value))
+
+                        # 补齐行长度
+                        while len(clean_row) < cols_count:
+                            clean_row.append('')
+                        clean_data.append(clean_row)
+
+                    # 批量写入数据（显著提升性能）
+                    end_row = start_row + rows_count - 1
+                    end_col = start_col + cols_count - 1
+                    target_range = sheet.Range(
+                        sheet.Cells(start_row, start_col),
+                        sheet.Cells(end_row, end_col)
+                    )
+                    target_range.Value = clean_data
+
+                    # 应用格式（如果需要）
+                    if keep_format and format_info:
+                        for i, j, cell_format, clean_text in format_info:
+                            cell = sheet.Cells(start_row + i, start_col + j)
+
                             try:
                                 # 如果包含换行,启用单元格自动换行
                                 if cell_format.has_newline:
@@ -69,24 +119,11 @@ class BaseExcelInserter(BaseTableInserter):
                                 
                                 if cell_format.is_code_block:
                                     # 代码块使用等宽字体、浅灰色背景
-                                    cell.Value = clean_text
                                     cell.Font.Name = "Consolas"
                                     cell.Interior.Color = 0xF0F0F0  # 浅灰色
                                     cell.WrapText = True
                                     # 设置垂直对齐为顶部
                                     cell.VerticalAlignment = -4160  # xlTop
-                                elif len(cell_format.segments) == 0:
-                                    # 没有格式,直接设置
-                                    cell.Value = clean_text
-                                elif len(cell_format.segments) == 1 and not any([
-                                    cell_format.segments[0].bold,
-                                    cell_format.segments[0].italic,
-                                    cell_format.segments[0].strikethrough,
-                                    cell_format.segments[0].is_code,
-                                    cell_format.segments[0].hyperlink_url
-                                ]):
-                                    # 单个片段且无格式无链接,直接设置
-                                    cell.Value = clean_text
                                 else:
                                     # 检查是否整个单元格都是一个超链接
                                     if (len(cell_format.segments) == 1
@@ -96,7 +133,6 @@ class BaseExcelInserter(BaseTableInserter):
                                                         cell_format.segments[0].strikethrough])):
                                         # 单个超链接,使用 Hyperlinks.Add
                                         segment = cell_format.segments[0]
-                                        cell.Value = segment.text
                                         try:
                                             sheet.Hyperlinks.Add(
                                                 Anchor=cell,
@@ -106,8 +142,6 @@ class BaseExcelInserter(BaseTableInserter):
                                         except com_error as e:
                                             log(f"Failed to add hyperlink: {e}")
                                     else:
-                                        # 使用富文本格式
-                                        cell.Value = clean_text
                                         char_index = 1  # Excel 字符索引从1开始
                                         
                                         # 检查是否有超链接(有超链接时不能使用 GetCharacters)
@@ -158,22 +192,19 @@ class BaseExcelInserter(BaseTableInserter):
                             except com_error as e:
                                 # 格式应用失败，记录但继续
                                 log(f"Failed to apply format to cell ({i},{j}): {e}")
-                        else:
-                            # 仅清除格式
-                            cell.Value = self._clean_markdown_formatting(cell_value)
-                
-                # 选中插入的区域（可选）
-                end_row = start_row + len(table_data) - 1
-                end_col = start_col + max(len(row) for row in table_data) - 1
-                range_to_select = sheet.Range(
-                    sheet.Cells(start_row, start_col),
-                    sheet.Cells(end_row, end_col)
-                )
-                range_to_select.Select()
-                
-                log(f"Successfully inserted table to {self.app_name}: {len(table_data)} rows, keep_format={keep_format}")
-                return True
-                
+
+                    # 选中插入的区域
+                    target_range.Select()
+
+                    log(f"Successfully inserted table to {self.app_name}: {rows_count} rows x {cols_count} cols, keep_format={keep_format}")
+                    return True
+
+                finally:
+                    # 恢复原始设置
+                    excel.ScreenUpdating = original_screen_updating
+                    excel.Calculation = original_calculation
+                    excel.EnableEvents = original_events
+
             finally:
                 pythoncom.CoUninitialize()
                 
@@ -229,8 +260,8 @@ class BaseExcelInserter(BaseTableInserter):
         """
         刷新应用程序状态（如果需要）
         
-        Args:
-            app: 应用程序对象
+        Returns:
+            刷新后的应用程序对象
         """
         return self._get_application()
     
