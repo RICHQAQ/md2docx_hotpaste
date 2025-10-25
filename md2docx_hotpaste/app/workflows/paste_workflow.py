@@ -11,7 +11,6 @@ from ...domains.awakener import AppLauncher
 from ...integrations.pandoc import PandocIntegration
 from ...domains.document.word import WordInserter
 from ...domains.document.wps import WPSInserter
-from ...domains.document.cleanup import FileCleanupManager
 from ...domains.spreadsheet.parser import parse_markdown_table
 from ...domains.spreadsheet.excel import MSExcelInserter
 from ...domains.spreadsheet.wps_excel import WPSExcelInserter
@@ -20,6 +19,7 @@ from ...utils.fs import generate_output_path
 from ...utils.logging import log
 from ...core.state import app_state
 from ...core.errors import ClipboardError, PandocError, InsertError
+from ...utils.win32.memfile import EphemeralFile
 
 
 class PasteWorkflow:
@@ -30,7 +30,6 @@ class PasteWorkflow:
         self.wps_inserter = WPSInserter()
         self.ms_excel_inserter = MSExcelInserter()
         self.wps_excel_inserter = WPSExcelInserter()
-        self.cleanup_manager = FileCleanupManager()
         self.notification_manager = NotificationManager()
         self.pandoc_integration = None  # 延迟初始化
     
@@ -151,34 +150,39 @@ class PasteWorkflow:
         """
         # 1. 处理LaTeX公式
         md_text = convert_latex_delimiters(md_text)
-        
-        # 2. 生成输出路径
-        output_path = generate_output_path(
-            keep_file=config.get("keep_file", False),
-            save_dir=config.get("save_dir", "")
-        )
-        
-        # 3. 转换为DOCX
+
+        # 2. 生成DOCX字节流
         self._ensure_pandoc_integration()
-        self.pandoc_integration.convert_to_docx(
+        docx_bytes = self.pandoc_integration.convert_to_docx_bytes(
             md_text=md_text,
-            output_path=output_path,
             reference_docx=config.get("reference_docx")
         )
-        log(f"Converted Markdown to DOCX: {output_path}")
+        temp_dir = config.get("temp_dir")  # 可选：支持 RAM 盘目录
+        with EphemeralFile(suffix=".docx", dir_=temp_dir) as eph:
+            eph.write_bytes(docx_bytes)
+            # 插入
+            inserted = self._perform_word_insertion(eph.path, target)
+
+        # 3. 保存文件
+        if config.get("keep_file", False):
+            # 2. 生成输出路径
+            try:
+                output_path = generate_output_path(
+                    keep_file=config.get("keep_file", False),
+                    save_dir=config.get("save_dir", "")
+                )
+                with open(output_path, "wb") as f:
+                    f.write(docx_bytes)
+                log(f"Saved DOCX to: {output_path}")
+            except Exception as e:
+                log(f"Failed to save DOCX file: {e}")
+                self.notification_manager.notify(
+                    "MD2DOCX HotPaste",
+                    "保存文档失败。",
+                    ok=False
+                )
         
-        # 4. 执行插入
-        inserted = self._perform_word_insertion(output_path, target)
-        
-        # 5. 清理文件
-        self.cleanup_manager.cleanup_if_needed(
-            file_path=output_path,
-            keep_file=config.get("keep_file", False),
-            insert_success=inserted,
-            target=target
-        )
-        
-        # 6. 显示结果通知
+        # 4. 显示结果通知
         self._show_word_result(target, inserted)
     
     def _ensure_pandoc_integration(self) -> None:

@@ -106,6 +106,17 @@ class NotificationManager:
     # ---- 后台线程主体 ----
     def _worker_loop(self):
         while not self._stop.is_set():
+            if app_state.config.get("notify", True) is False:
+                # 清空队列
+                while not self._q.empty():
+                    try:
+                        self._q.get_nowait()
+                    except Exception:
+                        pass
+                    finally:
+                        self._q.task_done()
+                time.sleep(0.25)
+                continue
             try:
                 title, message, ok = self._q.get(timeout=0.25)
             except queue.Empty:
